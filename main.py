@@ -52,7 +52,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
         lua_content = text_code.strip().strip("`").replace("lua\n", "", 1)
 
     else:
-        await ctx.send("you need to send a link or a text file.")
+        await ctx.send("you need to send a text file.")
         return
 
     progress_msg = await ctx.send("wait a moment.")

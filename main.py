@@ -346,7 +346,8 @@ intents.message_content = True
 
 bot = commands.Bot(
     command_prefix=".", 
-    intents=intents
+    intents=intents,
+    activity=discord.Activity(type=discord.ActivityType.watching, name=" 8xmj | obf and dump tools")
 )
 
 @bot.event
@@ -373,17 +374,39 @@ async def buy_coin(ctx):
 
 @bot.command(name="coin")
 async def check_coin(ctx):
-    amount = get_coins(ctx.author.id)
-    await ctx.send(f"Your current coin balance: **{amount}**")
+    if ctx.author.id == FREE_USER_ID:
+        await ctx.send("Your current coin balance: **Infinite**")
+    else:
+        amount = get_coins(ctx.author.id)
+        await ctx.send(f"Your current coin balance: **{amount}**")
+
+@bot.command(name="topcoin")
+async def top_coin(ctx):
+    sorted_coins = sorted(
+        [(uid, amt) for uid, amt in COIN_DATABASE.items() if int(uid) != FREE_USER_ID], 
+        key=lambda x: x[1], 
+        reverse=True
+    )[:10]
+    if not sorted_coins:
+        await ctx.send("No users have coins yet!")
+        return
+    embed = discord.Embed(title="Top 10 Coin Leaderboard", color=discord.Color.gold())
+    description = ""
+    for i, (uid, amt) in enumerate(sorted_coins, 1):
+        try:
+            user = await bot.fetch_user(int(uid))
+            description += f"{i}. {user.name}: {amt} coins\n"
+        except:
+            continue
+    embed.description = description
+    await ctx.send(embed=embed)
 
 @bot.command(name="dump")
 async def deobfuscate_cmd(ctx, *, args: str = None):
-    
     balance = get_coins(ctx.author.id)
     if balance < COST:
         await ctx.message.reply(f"Insufficient funds! You need {COST} coins to perform this action. You currently have {balance}.")
         return
-
     content = None
     if ctx.message.attachments:
         attachment = ctx.message.attachments[0]
@@ -406,21 +429,15 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
                 return
         else:
             content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
-
     if not content or not content.strip():
         await ctx.message.reply("Please add a file / raw link")
         return
-
     status_msg = await ctx.message.reply("wait a moment ")
     output = beautify_lua(content)
-
     if not output:
         await status_msg.edit(content=f"{ctx.author.mention} Failed")
         return
-
-    
     set_coins(ctx.author.id, balance - COST)
-
     final_output = f"-- This file was created by 8xmj https://discord.gg/swjkGWeDM --\n\n{output}"
     file_stream = io.BytesIO(final_output.encode('utf-8'))
     discord_file = discord.File(fp=file_stream, filename="message.txt")
@@ -429,12 +446,10 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
 
 @bot.command(name="obf")
 async def obfuscate_lua(ctx, *, text_code: str = None):
-    
     balance = get_coins(ctx.author.id)
     if balance < COST:
         await ctx.send(f"Insufficient funds! You need {COST} coins to perform this action. You currently have {balance}.")
         return
-
     lua_content = ""
     if ctx.message.attachments:
         attachment = ctx.message.attachments[0]
@@ -445,17 +460,15 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                 await ctx.send(f"Error reading file: {e}")
                 return
         else:
-            await ctx.send("Please add a .lua or .txt file")
+            await ctx.send("Please add .lua / .txt file")
             return
     elif text_code:
         lua_content = text_code.strip().strip("`").replace("lua\n", "", 1)
     else:
         await ctx.send("Please add .txt / .lua file")
         return
-
     progress_msg = await ctx.send("wait a moment")
     payload = {"action": "create_obf", "api_token": XHIDER_API_TOKEN, "preset": "Evil", "content": lua_content, "output": "console"}
-
     async with aiohttp.ClientSession() as session:
         try:
             async with session.post(XHIDER_URL, data=payload) as response:
@@ -464,10 +477,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                     if not obfuscated_code or not obfuscated_code.strip():
                         await progress_msg.edit(content="Error")
                         return
-                    
-                    
                     set_coins(ctx.author.id, balance - COST)
-                    
                     fixed_code = obfuscated_code.replace("--// This file was created by XHider v1.2 [https://discord.gg/hATuHQaQRb]", "-- This file was created by 8xmj https://discord.gg/swjkGWeDM --")
                     file_data = io.BytesIO(fixed_code.encode("utf-8"))
                     discord_file = discord.File(fp=file_data, filename="obfuscated.lua")

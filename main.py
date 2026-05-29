@@ -47,13 +47,18 @@ app = Flask('')
 def home():
     return "Bot is live"
 
-@app.route('/webhook/<int:user_id>', methods=['GET', 'POST'])
-def link4m_webhook(user_id):
+@app.route('/webhook', methods=['GET', 'POST'])
+def link4m_webhook():
+    user_id = request.args.get('alias') or request.form.get('alias')
     if user_id:
-        add_coins(user_id, 100)
-        if bot.is_ready():
-            bot.loop.create_task(notify_user_success(user_id, 100))
-        return jsonify({"status": "success"}), 200
+        try:
+            uid = int(user_id)
+            add_coins(uid, 100)
+            if bot.is_ready():
+                bot.loop.create_task(notify_user_success(uid, 100))
+            return jsonify({"status": "success"}), 200
+        except ValueError:
+            return "Invalid User ID", 400
     return "Invalid Data", 400
 
 async def notify_user_success(user_id, amount):
@@ -335,26 +340,29 @@ class ConfirmBuyView(discord.ui.View):
             return
         
         await interaction.response.defer()
-        callback_url = f"{BOT_URL}/webhook/{interaction.user.id}"
-        encoded_url = urllib.parse.quote(callback_url)
-        api_url = f"https://link4m.co/api-shorten/v2?api={LINK4M_API}&url={encoded_url}"
+        
+        encoded_bot_url = urllib.parse.quote(BOT_URL)
+        api_url = f"https://link4m.co/api-shorten?api={LINK4M_API}&url={encoded_bot_url}&alias={interaction.user.id}"
         
         async with aiohttp.ClientSession() as session:
             try:
-                async with session.get(api_url) as resp:
+                async with session.get(api_url, timeout=10) as resp:
                     if resp.status == 200:
                         res_data = await resp.json()
-                        if res_data.get("status") == "success":
+                        if res_data.get("status") == "success" and res_data.get("shortenedUrl"):
                             task_url = res_data.get("shortenedUrl")
+                            button.disabled = True
+                            await interaction.followup.edit_message(
+                                message_id=interaction.message.id, 
+                                content=f"Please complete this task to get 100 coins:\n{task_url}", 
+                                view=self
+                            )
                         else:
-                            task_url = f"https://link4m.co/st?api={LINK4M_API}&url={callback_url}"
+                            await interaction.followup.send("Link4M system is under maintenance. Please try again later.", ephemeral=True)
                     else:
-                        task_url = f"https://link4m.co/st?api={LINK4M_API}&url={callback_url}"
-            except:
-                task_url = f"https://link4m.co/st?api={LINK4M_API}&url={callback_url}"
-
-        button.disabled = True
-        await interaction.followup.edit_message(message_id=interaction.message.id, content=f"Please complete this task to get 100 coins:\n{task_url}", view=self)
+                        await interaction.followup.send("Failed to connect to Link4M server.", ephemeral=True)
+            except Exception as e:
+                await interaction.followup.send("An error occurred while generating the link. Please try again.", ephemeral=True)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
     async def cancel_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -380,7 +388,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     if ctx.message.attachments:
         attachment = ctx.message.attachments[0]
         if not attachment.filename.endswith(('.lua', '.txt')):
-            await ctx.message.reply("Please send the text / lua file")
+            await ctx.message.reply("Please send a text or lua file.")
             return
         try:
             content_bytes = await attachment.read()
@@ -400,14 +408,14 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
             content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
 
     if not content or not content.strip():
-        await ctx.message.reply("Please add the file / link raw")
+        await ctx.message.reply("Please add a file or a raw link.")
         return
 
-    status_msg = await ctx.message.reply("wait a moment")
+    status_msg = await ctx.message.reply("Wait a moment...")
     output = beautify_lua(content)
 
     if not output:
-        await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
+        await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code.")
         return
 
     if ctx.author.id != FREE_USER_ID:
@@ -439,15 +447,15 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                 await ctx.send(f"Error reading file: {e}")
                 return
         else:
-            await ctx.send("please add .lua / .txt file")
+            await ctx.send("Please add a .lua or .txt file.")
             return
     elif text_code:
         lua_content = text_code.strip().strip("`").replace("lua\n", "", 1)
     else:
-        await ctx.send("Please add txt / lua file.")
+        await ctx.send("Please add a txt or lua file.")
         return
 
-    progress_msg = await ctx.send("wait a moment.")
+    progress_msg = await ctx.send("Wait a moment...")
 
     payload = {
         "action": "create_obf",
@@ -459,11 +467,11 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.post(XHIDER_URL, data=payload) as response:
+                        async with session.post(XHIDER_URL, data=payload) as response:
                 if response.status == 200:
                     obfuscated_code = await response.text()
                     if not obfuscated_code or not obfuscated_code.strip():
-                        await progress_msg.edit(content="erro")
+                        await progress_msg.edit(content="Error occurred.")
                         return
 
                     if ctx.author.id != FREE_USER_ID:
@@ -478,12 +486,13 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 
                     await progress_msg.delete()
                     coin_notice = "" if ctx.author.id == FREE_USER_ID else " (-10 coins)"
-                    await ctx.send(content=f"obfucate successfully, {ctx.author.mention}!{coin_notice}", file=discord_file)
+                    await ctx.send(content=f"Obfuscated successfully, {ctx.author.mention}!{coin_notice}", file=discord_file)
                 else:
-                    await progress_msg.edit(content=f"error (Status: {response.status})")
+                    await progress_msg.edit(content=f"Error (Status: {response.status})")
         except Exception as e:
-            await progress_msg.edit(content=f"erro: {e}")
+            await progress_msg.edit(content=f"Error: {e}")
 
 if __name__ == "__main__":
     keep_alive()
     bot.run(TOKEN)
+        

@@ -328,11 +328,6 @@ def fetch_url(url):
         print(f"Failed to fetch URL: {e}")
         return None
 
-def generate_random_filename():
-    letters = string.ascii_letters
-    random_string = ''.join(random.choice(letters) for _ in range(10))
-    return f"{random_string}.lua"
-
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -358,13 +353,13 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     if ctx.message.attachments:
         attachment = ctx.message.attachments[0]
         if not attachment.filename.endswith(('.lua', '.txt')):
-            await ctx.message.reply("Unsupported file type. Please upload a .lua or .txt file.")
+            await ctx.message.reply("Please send the text / lua file")
             return
         try:
             content_bytes = await attachment.read()
             content = content_bytes.decode("utf-8", errors="ignore")
         except Exception as e:
-            await ctx.message.reply(f"Failed to read attached file: {e}")
+            await ctx.message.reply(f"Failed: {e}")
             return
 
     elif args:
@@ -373,54 +368,30 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
             url = stripped_args.strip("`")
             content = fetch_url(url)
             if not content:
-                await ctx.message.reply("Failed to download script from the provided URL.")
+                await ctx.message.reply("Failed")
                 return
         else:
             content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
 
     if not content or not content.strip():
-        await ctx.message.reply("Please provide raw code, a URL link, or attach a file after the .dump command.")
+        await ctx.message.reply("Please add the file / link raw")
         return
 
-    start_time = time.time()
-    status_msg = await ctx.message.reply("Processing deobfuscation...")
+    status_msg = await ctx.message.reply("wait a moment")
 
     output = beautify_lua(content)
 
     if not output:
-        await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code via the API.")
+        await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
         return
 
-    end_time = time.time()
-    execution_time = f"{int((end_time - start_time) * 1000)}ms"
-    
-    current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    banner = f"--[[\n\twait does it actually work?\n\ttime taken : {execution_time}\n\tDumped at : {current_timestamp}\n]]"
-    
-    line_count = len(output.splitlines())
-    remotes_found = re.findall(r'["\'](RemoteEvent|RemoteFunction|BindableEvent|BindableFunction)["\']|game:GetService\(\s*["\'](ReplicatedStorage)["\']\s*\)', output)
-    remote_count = len(remotes_found)
-    
-    suspicious_keywords = ["http", "webhook", "loadstring", "getgenv", "syn", "os.execute"]
-    suspicious_count = sum(output.lower().count(keyword) for keyword in suspicious_keywords)
-    
-    dump_footer = (
-        f"\n\n-- End Of Dump\n"
-        f"-- Lines : {line_count}\n"
-        f"-- Remotes : {remote_count}\n"
-        f"-- Suspicious strings : {suspicious_count}\n"
-        f"-- Credits Left : Unlimited"
-    )
-
-    final_output = f"{banner}\n\n{output}{dump_footer}"
+    final_output = f"-- this file was created by 8xmj https://discord.gg/swjkGWeDM --\n\n{output}"
 
     if len(final_output) <= 1980:
         await status_msg.edit(content=f"{ctx.author.mention}\n```lua\n{final_output}\n```")
     else:
         file_stream = io.BytesIO(final_output.encode('utf-8'))
-        random_name = generate_random_filename()
-        discord_file = discord.File(fp=file_stream, filename=random_name)
+        discord_file = discord.File(fp=file_stream, filename="message.txt")
         
         await status_msg.delete()
         await ctx.message.reply(content=f"{ctx.author.mention} Done.", file=discord_file)
@@ -489,4 +460,4 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 if __name__ == "__main__":
     keep_alive()
     bot.run(TOKEN)
-            
+        

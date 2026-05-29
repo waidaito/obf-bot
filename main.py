@@ -19,6 +19,7 @@ PRETTY_MODE = True
 XHIDER_API_TOKEN = "edb5c387a9aa19c8d6ec496565db731f"
 XHIDER_URL = "https://xhider.xyz/"
 FREE_USER_ID = 1219951796982648913
+TASK_URL = "https://link4m.net/go/TI87SLwl"
 COST = 10
 DATA_FILE = "data.json"
 
@@ -360,7 +361,7 @@ intents.message_content = True
 bot = commands.Bot(
     command_prefix=".", 
     intents=intents,
-    activity=discord.Game(name=".dump / .obf")
+    activity=discord.Activity(type=discord.ActivityType.watching, name=" 8xmj | obf and dump tools")
 )
 
 @bot.event
@@ -386,18 +387,26 @@ async def on_message(message):
 @bot.tree.command(name="addcoin", description="Add coins to a user")
 async def add_coin(interaction: discord.Interaction, member: discord.Member, amount: int):
     if interaction.user.id != FREE_USER_ID:
-        await interaction.response.send_message("No permission.", ephemeral=True)
+        await interaction.response.send_message("You do not have permission!", ephemeral=True)
         return
     current = get_coins(member.id)
-    set_coins(member.id, current + amount)
-    await interaction.response.send_message(f"Added {amount} coins to {member.name}.", ephemeral=True)
+    new_total = current + amount
+    set_coins(member.id, new_total)
+    await interaction.response.send_message(f"Added {amount} coins to {member.name}. Total: {new_total}", ephemeral=True)
+
+@bot.command(name="buycoin")
+async def buy_coin(ctx):
+    embed = discord.Embed(title="Purchase Coins", description="Click the button below to complete the task and receive 100 coins.", color=discord.Color.green())
+    view = discord.ui.View()
+    view.add_item(discord.ui.Button(label="Complete Task", url=TASK_URL, style=discord.ButtonStyle.link))
+    await ctx.send(embed=embed, view=view)
 
 @bot.command(name="coin")
 async def check_coin(ctx):
     if ctx.author.id == FREE_USER_ID: 
-        await ctx.message.reply("**User:** `" + ctx.author.name + "`\n**Remaining Credits:** `Unlimited`")
+        await ctx.message.reply("coin: Unlimited")
     else: 
-        await ctx.message.reply("**User:** `" + ctx.author.name + "`\n**Remaining Credits:** `" + str(get_coins(ctx.author.id)) + "`")
+        await ctx.message.reply("coin: " + str(get_coins(ctx.author.id)))
 
 @bot.command(name="topcoin")
 async def top_coin(ctx):
@@ -525,12 +534,11 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                         content=f"obfucate successfully, {ctx.author.mention}!",
                         file=discord_file
                     )
-                else:
-                    await progress_msg.edit(content=f"error (Status: {response.status})")
+                    else:
+                        await progress_msg.edit(content=f"error (Status: {response.status})")
         except Exception as e:
             await progress_msg.edit(content=f"erro: {e}")
 
 if __name__ == "__main__":
     keep_alive()
     bot.run(TOKEN)
-        

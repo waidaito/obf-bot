@@ -9,11 +9,26 @@ import discord
 import aiohttp
 from discord.ext import commands
 from datetime import datetime
+from flask import Flask
+from threading import Thread
 
 TOKEN = os.getenv("TOKEN", "TOKEN")
 PRETTY_MODE = True
 XHIDER_API_TOKEN = "edb5c387a9aa19c8d6ec496565db731f"
 XHIDER_URL = "https://xhider.xyz/"
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 def compress_loadstring_patterns(lua_code):
     url_pattern = r'(\w+)\s*=\s*\{\s*game:[hH]ttp[gG]et\(\s*["\'](https?://[^\s"\']+)["\']\s*\)\s*\}\s*;?'
@@ -137,13 +152,13 @@ def normalize_variables(lua_code):
     lua_code = "\n".join(lines)
 
     lines = lua_code.splitlines()
-    local_player_pattern = r'(?:(local\s+)?(\b(\w+)\b\s*=\s*)?\b(\w+)\b\.LocalPlayer\b'
+    local_player_pattern = r'(?:(local\s+)?(\b(\w+)\b\s*=\s*)?)?\b(\w+)\b\.LocalPlayer\b'
     for i, line in enumerate(lines):
         lp_match = re.search(local_player_pattern, line)
         if lp_match:
             assigned_lp_var = lp_match.group(2)
-            player_service_var = lp_match.group(3)
-            service_display = "Players" if player_service_var.startswith("var_") else player_service_var
+            player_service_var = lp_match.group(4)
+            service_display = "Players" if player_service_var and player_service_var.startswith("var_") else (player_service_var if player_service_var else "Players")
             if assigned_lp_var:
                 global_rename_map[assigned_lp_var] = "LocalPlayer"
                 indent = re.match(r'^(\s*)', line).group(1)
@@ -337,7 +352,7 @@ async def check_credits(ctx):
     await ctx.message.reply(f"**User:** `{username}`\n**Remaining Credits:** `Unlimited`")
 
 @bot.command(name="dump")
-async def deobfuscate(ctx, *, args: str = None):
+async def deobfuscate_cmd(ctx, *, args: str = None):
     content = None
 
     if ctx.message.attachments:
@@ -472,5 +487,6 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
             await progress_msg.edit(content=f"erro: {e}")
 
 if __name__ == "__main__":
+    keep_alive()
     bot.run(TOKEN)
             

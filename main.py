@@ -52,7 +52,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
         lua_content = text_code.strip().strip("`").replace("lua\n", "", 1)
 
     else:
-        await ctx.send("you need to send a text file.")
+        await ctx.send("Please add the txt or lua file.")
         return
 
     progress_msg = await ctx.send("wait a moment.")
@@ -77,7 +77,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 
                     fixed_code = obfuscated_code.replace(
                         "--// This file was created by XHider v1.2 [https://discord.gg/hATuHQaQRb]",
-                        "--// this file was created by wan"
+                        "-- this file was created by wan https://discord.gg/swjkGWeDM --"
                     )
 
                     file_data = io.BytesIO(fixed_code.encode("utf-8"))

@@ -21,7 +21,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is alive!"
+    return "Bot is live"
 
 def run():
     app.run(host='0.0.0.0', port=8080)
@@ -385,16 +385,13 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
         await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
         return
 
-    final_output = f"-- this file was created by 8xmj https://discord.gg/swjkGWeDM --\n\n{output}"
+    final_output = f"-- This file was created by 8xmj https://discord.gg/swjkGWeDM --\n\n{output}"
 
-    if len(final_output) <= 1980:
-        await status_msg.edit(content=f"{ctx.author.mention}\n```lua\n{final_output}\n```")
-    else:
-        file_stream = io.BytesIO(final_output.encode('utf-8'))
-        discord_file = discord.File(fp=file_stream, filename="message.txt")
-        
-        await status_msg.delete()
-        await ctx.message.reply(content=f"{ctx.author.mention} Done.", file=discord_file)
+    file_stream = io.BytesIO(final_output.encode('utf-8'))
+    discord_file = discord.File(fp=file_stream, filename="message.txt")
+    
+    await status_msg.delete()
+    await ctx.message.reply(content=f"{ctx.author.mention} Done.", file=discord_file)
 
 @bot.command(name="obf")
 async def obfuscate_lua(ctx, *, text_code: str = None):
@@ -409,14 +406,14 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                 await ctx.send(f"Error reading file: {e}")
                 return
         else:
-            await ctx.send("please provide a .lua or .txt file")
+            await ctx.send("please add .lua / .txt file")
             return
 
     elif text_code:
         lua_content = text_code.strip().strip("`").replace("lua\n", "", 1)
 
     else:
-        await ctx.send("Please add the txt or lua file.")
+        await ctx.send("Please add txt / lua file.")
         return
 
     progress_msg = await ctx.send("wait a moment.")
@@ -441,7 +438,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 
                     fixed_code = obfuscated_code.replace(
                         "--// This file was created by XHider v1.2 [https://discord.gg/hATuHQaQRb]",
-                        "-- this file was created by 8xmj https://discord.gg/swjkGWeDM --"
+                        "-- This file was created by 8xmj https://discord.gg/swjkGWeDM --"
                     )
 
                     file_data = io.BytesIO(fixed_code.encode("utf-8"))
@@ -460,4 +457,3 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 if __name__ == "__main__":
     keep_alive()
     bot.run(TOKEN)
-        

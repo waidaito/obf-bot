@@ -378,7 +378,7 @@ async def check_coin(ctx):
 
 @bot.command(name="dump")
 async def deobfuscate_cmd(ctx, *, args: str = None):
-    # Kiểm tra coin
+    
     balance = get_coins(ctx.author.id)
     if balance < COST:
         await ctx.message.reply(f"Insufficient funds! You need {COST} coins to perform this action. You currently have {balance}.")
@@ -418,7 +418,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
         await status_msg.edit(content=f"{ctx.author.mention} Failed")
         return
 
-    # Trừ coin sau khi xử lý thành công
+    
     set_coins(ctx.author.id, balance - COST)
 
     final_output = f"-- This file was created by 8xmj https://discord.gg/swjkGWeDM --\n\n{output}"
@@ -429,7 +429,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
 
 @bot.command(name="obf")
 async def obfuscate_lua(ctx, *, text_code: str = None):
-    # Kiểm tra coin
+    
     balance = get_coins(ctx.author.id)
     if balance < COST:
         await ctx.send(f"Insufficient funds! You need {COST} coins to perform this action. You currently have {balance}.")
@@ -450,10 +450,10 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
     elif text_code:
         lua_content = text_code.strip().strip("`").replace("lua\n", "", 1)
     else:
-        await ctx.send("Please add a .txt or .lua file")
+        await ctx.send("Please add .txt / .lua file")
         return
 
-    progress_msg = await ctx.send("Processing, please wait...")
+    progress_msg = await ctx.send("wait a moment")
     payload = {"action": "create_obf", "api_token": XHIDER_API_TOKEN, "preset": "Evil", "content": lua_content, "output": "console"}
 
     async with aiohttp.ClientSession() as session:
@@ -465,7 +465,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                         await progress_msg.edit(content="Error")
                         return
                     
-                    # Trừ coin sau khi thành công
+                    
                     set_coins(ctx.author.id, balance - COST)
                     
                     fixed_code = obfuscated_code.replace("--// This file was created by XHider v1.2 [https://discord.gg/hATuHQaQRb]", "-- This file was created by 8xmj https://discord.gg/swjkGWeDM --")
@@ -481,4 +481,4 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 if __name__ == "__main__":
     keep_alive()
     bot.run(TOKEN)
-                
+    

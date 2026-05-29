@@ -77,7 +77,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 
                     fixed_code = obfuscated_code.replace(
                         "--// This file was created by XHider v1.2 [https://discord.gg/hATuHQaQRb]",
-                        "-- this file was created by wan https://discord.gg/swjkGWeDM --"
+                        "-- this file was created by 8xmj https://discord.gg/swjkGWeDM --"
                     )
 
                     file_data = io.BytesIO(fixed_code.encode("utf-8"))

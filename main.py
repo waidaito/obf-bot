@@ -9,20 +9,6 @@ import discord
 import aiohttp
 from discord.ext import commands
 from datetime import datetime
-from flask import Flask
-from threading import Thread
-
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is alive"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    Thread(target=run_flask).start()
 
 TOKEN = os.getenv("TOKEN", "TOKEN")
 PRETTY_MODE = True
@@ -318,6 +304,15 @@ def beautify_lua(content):
     
     return final_clean
 
+def fetch_url(url):
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        return response.text
+    except Exception as e:
+        print(f"Failed to fetch URL: {e}")
+        return None
+
 def generate_random_filename():
     letters = string.ascii_letters
     random_string = ''.join(random.choice(letters) for _ in range(10))
@@ -325,8 +320,6 @@ def generate_random_filename():
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.messages = True
-intents.dm_messages = True
 
 bot = commands.Bot(
     command_prefix=".", 
@@ -336,33 +329,42 @@ bot = commands.Bot(
 
 @bot.event
 async def on_ready():
-    print(f"Bot {bot.user} is ready with dual functions!")
+    print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
 
 @bot.command(name="credits")
 async def check_credits(ctx):
     username = ctx.author.name
-    await ctx.message.reply(f"User: `{username}`\nRemaining Credits: `Unlimited`")
+    await ctx.message.reply(f"**User:** `{username}`\n**Remaining Credits:** `Unlimited`")
 
 @bot.command(name="dump")
-async def dump(ctx):
-    if not ctx.message.attachments:
-        await ctx.message.reply("Please upload a .lua or .txt file to dump. Raw text/URLs are not supported.")
-        return
+async def deobfuscate(ctx, *, args: str = None):
+    content = None
 
-    attachment = ctx.message.attachments[0]
-    if not attachment.filename.endswith(('.lua', '.txt')):
-        await ctx.message.reply("Unsupported file type. Please upload a .lua or .txt file.")
-        return
+    if ctx.message.attachments:
+        attachment = ctx.message.attachments[0]
+        if not attachment.filename.endswith(('.lua', '.txt')):
+            await ctx.message.reply("Unsupported file type. Please upload a .lua or .txt file.")
+            return
+        try:
+            content_bytes = await attachment.read()
+            content = content_bytes.decode("utf-8", errors="ignore")
+        except Exception as e:
+            await ctx.message.reply(f"Failed to read attached file: {e}")
+            return
 
-    try:
-        content_bytes = await attachment.read()
-        content = content_bytes.decode("utf-8", errors="ignore")
-    except Exception as e:
-        await ctx.message.reply(f"Failed to read attached file: {e}")
-        return
+    elif args:
+        stripped_args = args.strip()
+        if stripped_args.startswith(("http://", "https://")):
+            url = stripped_args.strip("`")
+            content = fetch_url(url)
+            if not content:
+                await ctx.message.reply("Failed to download script from the provided URL.")
+                return
+        else:
+            content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
 
     if not content or not content.strip():
-        await ctx.message.reply("The uploaded file is empty.")
+        await ctx.message.reply("Please provide raw code, a URL link, or attach a file after the .dump command.")
         return
 
     start_time = time.time()
@@ -469,8 +471,6 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
         except Exception as e:
             await progress_msg.edit(content=f"erro: {e}")
 
-keep_alive()
-
 if __name__ == "__main__":
-    bot.run(os.getenv("DISCORD_TOKEN"))
-        
+    bot.run(TOKEN)
+            

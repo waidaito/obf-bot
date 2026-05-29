@@ -308,6 +308,7 @@ async def on_message(message):
         except: pass
     await bot.process_commands(message)
 
+# Lệnh Addcoin dạng Slash ẩn (Ephemeral)
 @bot.tree.command(name="addcoin", description="Add coins")
 async def add_coin(interaction: discord.Interaction, member: discord.Member, amount: int):
     if interaction.user.id != FREE_USER_ID:

@@ -534,8 +534,8 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                         content=f"obfucate successfully, {ctx.author.mention}!",
                         file=discord_file
                     )
-                    else:
-                        await progress_msg.edit(content=f"error (Status: {response.status})")
+                else:
+                    await progress_msg.edit(content=f"error (Status: {response.status})")
         except Exception as e:
             await progress_msg.edit(content=f"erro: {e}")
 

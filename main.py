@@ -404,7 +404,7 @@ async def top_coin(ctx):
 @bot.command(name="dump")
 async def deobfuscate_cmd(ctx, *, args: str = None):
     balance = get_coins(ctx.author.id)
-    if balance < COST:
+    if ctx.author.id != FREE_USER_ID and balance < COST:
         await ctx.message.reply(f"Insufficient funds! You need {COST} coins to perform this action. You currently have {balance}.")
         return
     content = None
@@ -437,17 +437,18 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     if not output:
         await status_msg.edit(content=f"{ctx.author.mention} Failed")
         return
-    set_coins(ctx.author.id, balance - COST)
+    if ctx.author.id != FREE_USER_ID:
+        set_coins(ctx.author.id, balance - COST)
     final_output = f"-- This file was created by 8xmj https://discord.gg/swjkGWeDM --\n\n{output}"
     file_stream = io.BytesIO(final_output.encode('utf-8'))
     discord_file = discord.File(fp=file_stream, filename="message.txt")
     await status_msg.delete()
-    await ctx.message.reply(content=f"{ctx.author.mention} Done. 10 coins have been deducted.", file=discord_file)
+    await ctx.message.reply(content=f"{ctx.author.mention} Done." + ("" if ctx.author.id == FREE_USER_ID else " 10 coins have been deducted."), file=discord_file)
 
 @bot.command(name="obf")
 async def obfuscate_lua(ctx, *, text_code: str = None):
     balance = get_coins(ctx.author.id)
-    if balance < COST:
+    if ctx.author.id != FREE_USER_ID and balance < COST:
         await ctx.send(f"Insufficient funds! You need {COST} coins to perform this action. You currently have {balance}.")
         return
     lua_content = ""
@@ -477,12 +478,13 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                     if not obfuscated_code or not obfuscated_code.strip():
                         await progress_msg.edit(content="Error")
                         return
-                    set_coins(ctx.author.id, balance - COST)
+                    if ctx.author.id != FREE_USER_ID:
+                        set_coins(ctx.author.id, balance - COST)
                     fixed_code = obfuscated_code.replace("--// This file was created by XHider v1.2 [https://discord.gg/hATuHQaQRb]", "-- This file was created by 8xmj https://discord.gg/swjkGWeDM --")
                     file_data = io.BytesIO(fixed_code.encode("utf-8"))
                     discord_file = discord.File(fp=file_data, filename="obfuscated.lua")
                     await progress_msg.delete()
-                    await ctx.send(content=f"Obfuscated successfully, {ctx.author.mention}! 10 coins have been deducted.", file=discord_file)
+                    await ctx.send(content=f"Obfuscated successfully, {ctx.author.mention}!" + ("" if ctx.author.id == FREE_USER_ID else " 10 coins have been deducted."), file=discord_file)
                 else:
                     await progress_msg.edit(content=f"Error (Status: {response.status})")
         except Exception as e:

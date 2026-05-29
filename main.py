@@ -527,11 +527,11 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                     )
 
                     file_data = io.BytesIO(fixed_code.encode("utf-8"))
-                    discord_file = discord.File(fp=file_data, filename="obfuscated.lua")
+                    discord_file = discord.File(fp=file_data, filename="message.txt")
 
                     await progress_msg.delete()
                     await ctx.send(
-                        content=f"obfucate successfully, {ctx.author.mention}!",
+                        content=f" {ctx.author.mention} Done",
                         file=discord_file
                     )
                 else:

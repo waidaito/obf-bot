@@ -58,6 +58,7 @@ def keep_alive():
     t.start()
 
 def compress_loadstring_patterns(lua_code):
+    if not lua_code: return ""
     url_pattern = r'(\w+)\s*=\s*\{\s*game:[hH]ttp[gG]et\(\s*["\'](https?://[^\s"\']+)["\']\s*\)\s*\}\s*;?'
     urls_found = re.findall(url_pattern, lua_code)
     
@@ -72,6 +73,7 @@ def compress_loadstring_patterns(lua_code):
     return lua_code
 
 def heuristic_metatable_decoder(lua_code):
+    if not lua_code: return ""
     lookup_pattern = r'\(\s*["\'](?:\\.|[^"\'])*["\']\s*\)\[\s*\d{5,}\s*\]'
     lua_code = re.sub(lookup_pattern, 'nil', lua_code)
     dynamic_pattern = r'\(\s*(["\'](?:\\.|[^"\'])*["\'])\s*\)\[\s*[^\]]+\s*\]'
@@ -80,6 +82,7 @@ def heuristic_metatable_decoder(lua_code):
     return lua_code
 
 def sanitize_junk_expressions(lua_code):
+    if not lua_code: return ""
     lines = lua_code.splitlines()
     for i, line in enumerate(lines):
         if ".Connect(" in line:
@@ -110,6 +113,7 @@ def sanitize_junk_expressions(lua_code):
     return "\n".join(cleaned_lines)
 
 def normalize_variables(lua_code):
+    if not lua_code: return ""
     obfuscated_patterns = [
         r'\b[a-zA-Z_]\w*_ref\d*\b',
         r'\b[a-zA-Z_]\w*_fn\b',
@@ -247,6 +251,7 @@ def normalize_variables(lua_code):
     return "\n".join(cleaned_lines)
 
 def unflatten_control_flow(lua_code):
+    if not lua_code: return ""
     block_pattern = re.compile(
         r'(?:if|elseif)\s+\w+\s*==\s*([0-9\x22\x27\w]+)\s+then\s*(.*?)(?=\s*(?:elseif|else|end\s*$))', 
         re.DOTALL
@@ -300,6 +305,7 @@ def unflatten_control_flow(lua_code):
     return lua_code
 
 def decode_bytecode_escapes(lua_code):
+    if not lua_code: return ""
     def replace_decimal(match):
         full_str = match.group(0)
         escapes = re.findall(r'\\([0-9]{3})', full_str)
@@ -318,6 +324,7 @@ def decode_bytecode_escapes(lua_code):
     return lua_code
 
 def beautify_lua(content):
+    if not content or not content.strip(): return None
     deobfuscated_output = None
     try:
         response = requests.post(
@@ -337,6 +344,7 @@ def beautify_lua(content):
     except Exception:
         deobfuscated_output = content
 
+    if not deobfuscated_output: return None
     step0 = decode_bytecode_escapes(deobfuscated_output)
     step1 = unflatten_control_flow(step0)
     step2 = heuristic_metatable_decoder(step1)
@@ -349,10 +357,10 @@ def beautify_lua(content):
 def fetch_url(url):
     try:
         response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        return response.text
-    except Exception as e:
-        print(f"Failed to fetch URL: {e}")
+        if response.status_code == 200:
+            return response.text
+        return None
+    except Exception:
         return None
 
 intents = discord.Intents.default()
@@ -441,7 +449,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
         if stripped_args.startswith(("http://", "https://")):
             url = stripped_args.strip("`")
             content = fetch_url(url)
-            if not content:
+            if not content or not content.strip():
                 await ctx.message.reply("Failed")
                 return
         else:
@@ -455,7 +463,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
 
     output = beautify_lua(content)
 
-    if not output:
+    if not output or not output.strip() or output == content:
         await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
         return
 

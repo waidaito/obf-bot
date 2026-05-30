@@ -448,7 +448,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
         stripped_args = args.strip()
         if stripped_args.startswith(("http://", "https://")):
             url = stripped_args.strip("`")
-            if url.startswith(("https://pastefy.app/", "https://raw.githubusercontent.com/")):
+            if url.startswith(("https://pastefy.app/","https://xhider.xyz/raw/","https://raw.githubusercontent.com/")):
                 content = fetch_url(url)
                 if not content or not content.strip():
                     await ctx.message.reply("Failed")
@@ -550,6 +550,59 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                     await progress_msg.edit(content=f"error (Status: {response.status})")
         except Exception as e:
             await progress_msg.edit(content=f"erro: {e}")
+
+@bot.command(name="detect")
+async def detect_obfuscator(ctx, *, args: str = None):
+    content = None
+
+    if ctx.message.attachments:
+        attachment = ctx.message.attachments[0]
+        if not attachment.filename.endswith(('.lua', '.txt')):
+            await ctx.message.reply("Please send  .lua / .txt file.")
+            return
+        try:
+            content_bytes = await attachment.read()
+            content = content_bytes.decode("utf-8", errors="ignore")
+        except Exception as e:
+            await ctx.message.reply(f"Failed to read file: {e}")
+            return
+
+    elif args:
+        stripped_args = args.strip()
+        if stripped_args.startswith(("http://", "https://")):
+            url = stripped_args.strip("`")
+            if url.startswith(("https://pastefy.app/", "https://raw.githubusercontent.com/","https://xhider.xyz/raw/")):
+                content = fetch_url(url)
+                if not content or not content.strip():
+                    await ctx.message.reply("Failed to fetch content from url")
+                    return
+            else:
+                content = fetch_url(url)
+                if not content:
+                    content = stripped_args
+        else:
+            content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
+
+    if not content or not content.strip():
+        await ctx.message.reply("Please provide a file, text / raw link.")
+        return
+
+    result = "undetermined"
+
+    if "This file was protected with MoonSec V3" in content:
+        result = "8xms thinks this is moonsecv3"
+    elif "wearedevs.net/obfuscator" in content or "8xms thinks this is wearedev" in content:
+        result = "wearedev"
+    elif "This file was created by XHider" in content or "8xms thinks this is xhider" in content:
+        result = "xhider"
+
+    msg_embed = discord.Embed(
+        title="analysis",
+        description=f"Result: **{result}**",
+        color=discord.Color.red()
+    )
+    
+    await ctx.message.reply(embed=msg_embed)
 
 if __name__ == "__main__":
     keep_alive()

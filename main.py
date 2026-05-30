@@ -59,7 +59,7 @@ def keep_alive():
 
 def compress_loadstring_patterns(lua_code):
     if not lua_code: return ""
-    url_pattern = r'(\w+)\s*=\s*\{\s*game:[hH]ttp[gG]et\(\s*["\'](https?://[^\s"\']+)["\']\s*\)\s*\}\s*;?'
+    url_pattern = r'(\w+)\s*=\s*\{\s*game:[hH]ttp[gG]et\(\s*["\'](https?://[^\s"\']+)["\']\s*\)\s*\r*\}\s*;?'
     urls_found = re.findall(url_pattern, lua_code)
     
     for var_name, url in urls_found:
@@ -448,8 +448,12 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
         stripped_args = args.strip()
         if stripped_args.startswith(("http://", "https://")):
             url = stripped_args.strip("`")
-            content = fetch_url(url)
-            if not content or not content.strip():
+            if url.startswith(("https://pastefy.app/", "https://raw.githubusercontent.com/")):
+                content = fetch_url(url)
+                if not content or not content.strip():
+                    await ctx.message.reply("Failed")
+                    return
+            else:
                 await ctx.message.reply("Failed")
                 return
         else:
@@ -550,3 +554,4 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 if __name__ == "__main__":
     keep_alive()
     bot.run(TOKEN)
+                 

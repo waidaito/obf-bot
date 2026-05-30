@@ -462,7 +462,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     if ctx.author.id != FREE_USER_ID:
         set_coins(ctx.author.id, get_coins(ctx.author.id) - COST)
 
-    final_output = f"-- This file was created by 𝟴𝘅𝗺s https://discord.gg/swjkGWeDM --\n\n{output}"
+    final_output = f"-- This file was created by 8xms https://discord.gg/8mktK8HtT --\n\n{output}"
 
     file_stream = io.BytesIO(final_output.encode('utf-8'))
     discord_file = discord.File(fp=file_stream, filename="message.txt")
@@ -523,7 +523,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 
                     fixed_code = obfuscated_code.replace(
                         "--// This file was created by XHider v1.2 [https://discord.gg/hATuHQaQRb]",
-                        "-- This file was created by 𝟴𝘅𝗺s https://discord.gg/swjkGWeDM --"
+                        "-- This file was created by 8xms https://discord.gg/8mktK8HtT --"
                     )
 
                     file_data = io.BytesIO(fixed_code.encode("utf-8"))

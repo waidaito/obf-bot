@@ -591,10 +591,12 @@ async def detect_obfuscator(ctx, *, args: str = None):
 
     if "This file was protected with MoonSec V3" in content:
         result = "8xms thinks this is moonsecv3"
-    elif "wearedevs.net/obfuscator" in content or "8xms thinks this is wearedev" in content:
-        result = "wearedev"
-    elif "This file was created by XHider" in content or "8xms thinks this is xhider" in content:
-        result = "xhider"
+    elif "wearedevs.net/obfuscator" in content or "thinks this is wearedev" in content:
+        result = "8xms thinks this is wearedev"
+    elif "This file was created by XHider" in content or " thinks this is xhider" in content:
+        result = "Result: **8xms thinks this is xhider"
+    elif "This file was created by 8xms" in content or "thinks this is" in content:
+        result = "8xms thinks this is 8xms"
 
     msg_embed = discord.Embed(
         title="analysis",

@@ -590,12 +590,24 @@ async def detect_obfuscator(ctx, *, args: str = None):
 
     result = "undetermined"
 
-    if "This file was protected with MoonSec V3" in content:
+    if re.search(r":gsub\s*\(\s*['\"].\+['\"]\s*,\s*\(\s*function", content):
         result = "8xms thinks this is moonsecv3"
+        
+    elif re.search(r"newproxy\s*,\s*setmetatable\s*,\s*getmetatable\s*,\s*select\s*,\s*\{\s*\.\.\.\s*\}\s*\)\s*end\s*\)\s*\(\s*\.\.\.\s*\)", content):
+        result = "8xms thinks this is wearedev"
+        
+    elif "Luraph decompression error" in content or re.search(r"Luraph\s+decompression\s+error", content):
+        result = "8xms thinks this is luraph"
+        
+    elif "This file was protected with MoonSec V3" in content:
+        result = "8xms thinks this is moonsecv3"
+        
     elif "wearedevs.net/obfuscator" in content or "thinks this is wearedev" in content:
         result = "8xms thinks this is wearedev"
+        
     elif "This file was created by XHider" in content or " thinks this is xhider" in content:
-        result = "Result: **8xms thinks this is xhider"
+        result = "8xms thinks this is xhider"
+        
     elif "This file was created by 8xms" in content or "thinks this is" in content:
         result = "8xms thinks this is 8xms"
 

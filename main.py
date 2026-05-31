@@ -612,7 +612,7 @@ async def detect_obfuscator(ctx, *, args: str = None):
         result = "8xms thinks this is moonveil"
 
     elif re.search(r"local\s+v0\s*[,=]", content):
-        result = "8xms thinks this is laobfuscator"
+        result = "8xms thinks this is luaobfuscator"
         
     elif "This file was created by 8xms" in content or "thinks this is" in content:
         result = "8xms thinks this is 8xms"
@@ -634,7 +634,7 @@ async def help_cmd(ctx):
         "`.buycoin`  get task link to earn coins\n"
         "`.detect`  detect obfuscators type\n"
         "`.dump`  deobfuscator(wearedev) script (Cost: 10 coins)\n"
-        "`.obf`  obfuscator script using 8xms (Cost: 10 coins)"
+        "`.obf`  obfuscate script using 8xms (Cost: 10 coins)"
     )
     
     msg_embed = discord.Embed(

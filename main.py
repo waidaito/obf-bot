@@ -16,7 +16,12 @@ from threading import Thread
 
 TOKEN = os.getenv("TOKEN", "TOKEN")
 PRETTY_MODE = True
-XHIDER_API_TOKEN = "edb5c387a9aa19c8d6ec496565db731f"
+XHIDER_API_TOKENS = [
+    "edb5c387a9aa19c8d6ec496565db731f",
+    "09fc44f793b6fca1cad646fca9f0e538",
+    "217af91c587d12cce1ccd6aa9a2aa1ce"
+]
+
 XHIDER_URL = "https://xhider.xyz/"
 FREE_USER_ID = 1219951796982648913
 TASK_URL = "https://link4m.net/go/TI87SLwl"
@@ -515,7 +520,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
 
     payload = {
         "action": "create_obf",
-        "api_token": XHIDER_API_TOKEN,
+        "api_token": random.choice(XHIDER_API_TOKENS),
         "preset": "Evil",
         "content": lua_content,
         "output": "console"
@@ -528,7 +533,8 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                     obfuscated_code = await response.text()
 
                     if not obfuscated_code or not obfuscated_code.strip():
-                        await progress_msg.edit(content="erro")
+                        await progress_msg.delete()
+                        await ctx.message.reply("erro")
                         return
 
                     if ctx.author.id != FREE_USER_ID:
@@ -543,14 +549,19 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
                     discord_file = discord.File(fp=file_data, filename="message.txt")
 
                     await progress_msg.delete()
-                    await ctx.send(
+                    await ctx.message.reply(
                         content=f" {ctx.author.mention} Done",
                         file=discord_file
                     )
                 else:
-                    await progress_msg.edit(content=f"error (Status: {response.status})")
+                    await progress_msg.delete()
+                    await ctx.message.reply(f"error (Status: {response.status})")
         except Exception as e:
-            await progress_msg.edit(content=f"erro: {e}")
+            try:
+                await progress_msg.delete()
+            except:
+                pass
+            await ctx.message.reply(f"erro: {e}")
 
 @bot.command(name="detect")
 async def detect_obfuscator(ctx, *, args: str = None):
@@ -590,31 +601,25 @@ async def detect_obfuscator(ctx, *, args: str = None):
 
     result = "undetermined"
 
-    if re.search(r":gsub\s*\(\s*['\"].\+['\"]\s*,\s*\(\s*function", content):
-        result = "8xms thinks this is moonsecv3"
-        
-    elif re.search(r"newproxy\s*,\s*setmetatable\s*,\s*getmetatable\s*,\s*select\s*,\s*\{\s*\.\.\.\s*\}\s*\)\s*end\s*\)\s*\(\s*\.\.\.\s*\)", content):
-        result = "8xms thinks this is wearedev"
-        
-    elif "Luraph decompression error" in content or re.search(r"Luraph\s+decompression\s+error", content):
+    if re.search(r"return\s*\(\s*function\s*\([^\)]*\)\s*local\s+[a-zA-Z0-9_,\s]+do\s+local\s+[a-zA-Z0-9_,\s]+=\s*(?:math|string)", content):
         result = "8xms thinks this is luraph"
         
-    elif "This file was protected with MoonSec V3" in content:
+    elif re.search(r"return\s*\(\s*function\s*\([^\)]*\)\s*local\s+[a-zA-Z0-9_]\s*=\s*\{\s*['\"]\\[0-9]+", content):
+        result = "8xms thinks this is wearedev"
+
+    elif re.search(r":gsub\s*\(\s*['\"].\+['\"]\s*,\s*\(\s*function", content):
         result = "8xms thinks this is moonsecv3"
         
-    elif "wearedevs.net/obfuscator" in content or "thinks this is wearedev" in content:
-        result = "8xms thinks this is wearedev"
-        
-    elif "This file was created by XHider" in content or " thinks this is xhider" in content:
-        result = "8xms thinks this is xhider"
-
     elif re.search(r"local\s+[a-zA-Z0-9_,\s]+=\s*(?:bit32\.bxor|getmetatable|pairs|type)", content):
         result = "8xms thinks this is moonveil"
 
     elif re.search(r"local\s+v0\s*[,=]", content):
         result = "8xms thinks this is luaobfuscator"
         
-    elif "This file was created by 8xms" in content or "thinks this is" in content:
+    elif "This file was created by XHider" in content or " thinks this is xhider" in content:
+        result = "8xms thinks this is xhider"
+        
+    elif re.search(r"return\s*\(\s*function\s*\([^\)]*\)\s*local\s+[a-zA-Z0-9_,\s]+do\s+local\s+[a-zA-Z0-9_,\s]+=\s*math\.floor.*-\s*[0-9]+\s*-\s*\(\s*-\s*[0-9]+", content):
         result = "8xms thinks this is 8xms"
 
     msg_embed = discord.Embed(

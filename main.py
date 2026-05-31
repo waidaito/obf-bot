@@ -634,7 +634,7 @@ async def help_cmd(ctx):
         "`.buycoin`  get task link to earn coins\n"
         "`.detect`  detect obfuscators type\n"
         "`.dump`  deobfuscator(wearedev) script (Cost: 10 coins)\n"
-        "`.obf`  obfuscate script using 8xms (Cost: 10 coins)"
+        "`.obf`  obfuscator script using 8xms (Cost: 10 coins)"
     )
     
     msg_embed = discord.Embed(

@@ -436,7 +436,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     if ctx.message.attachments:
         attachment = ctx.message.attachments[0]
         if not attachment.filename.endswith(('.lua', '.txt')):
-            await ctx.message.reply("Please send the text / lua file")
+            await ctx.message.reply("Please send the txt / lua file")
             return
         try:
             content_bytes = await attachment.read()
@@ -585,7 +585,7 @@ async def detect_obfuscator(ctx, *, args: str = None):
             content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
 
     if not content or not content.strip():
-        await ctx.message.reply("Please provide a file, text / raw link.")
+        await ctx.message.reply("Please provide a file, txt / raw link.")
         return
 
     result = "undetermined"
@@ -607,6 +607,12 @@ async def detect_obfuscator(ctx, *, args: str = None):
         
     elif "This file was created by XHider" in content or " thinks this is xhider" in content:
         result = "8xms thinks this is xhider"
+
+    elif re.search(r"local\s+[a-zA-Z0-9_,\s]+=\s*(?:bit32\.bxor|getmetatable|pairs|type)", content):
+        result = "8xms thinks this is moonveil"
+
+    elif re.search(r"local\s+v0\s*[,=]", content):
+        result = "8xms thinks this is laobfuscator"
         
     elif "This file was created by 8xms" in content or "thinks this is" in content:
         result = "8xms thinks this is 8xms"

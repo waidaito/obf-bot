@@ -369,7 +369,8 @@ intents.message_content = True
 bot = commands.Bot(
     command_prefix=".", 
     intents=intents,
-    activity=discord.Activity(type=discord.ActivityType.watching, name=" 𝟴𝘅𝗺s | obf and dump tools")
+    activity=discord.Activity(type=discord.ActivityType.watching, name=" 𝟴𝘅𝗺s | obf and dump tools"),
+    help_command=None
 )
 
 @bot.event
@@ -420,7 +421,7 @@ async def check_coin(ctx):
 async def top_coin(ctx):
     sorted_coins = sorted(DATA["coins"].items(), key=lambda x: x[1], reverse=True)[:10]
     desc = "\n".join([f"{i+1}. <@{uid}>: {amt} coins" for i, (uid, amt) in enumerate(sorted_coins)])
-    embed = discord.Embed(title="Top 10 Rich Users", description=desc, color=0xffd700)
+    embed = discord.Embed(title="list of user coins", description=desc, color=0xffd700)
     await ctx.send(embed=embed)
 
 @bot.command(name="dump")
@@ -604,6 +605,25 @@ async def detect_obfuscator(ctx, *, args: str = None):
         color=discord.Color.red()
     )
     
+    await ctx.message.reply(embed=msg_embed)
+
+@bot.command(name="help")
+async def help_cmd(ctx):
+    help_text = (
+        "`.help`\n"
+        "`.coin`  check your coin\n"
+        "`.topcoin`  list of user coins\n"
+        "`.buycoin`  get task link to earn coins\n"
+        "`.detect`  detect obfuscators type\n"
+        "`.dump`  deobfuscator(wearedev) script (Cost: 10 coins)\n"
+        "`.obf`  obfuscate script using 8xms (Cost: 10 coins)"
+    )
+    
+    msg_embed = discord.Embed(
+        title="Command",
+        description=help_text,
+        color=discord.Color.red()
+    )
     await ctx.message.reply(embed=msg_embed)
 
 if __name__ == "__main__":

@@ -412,7 +412,6 @@ async def on_message(message):
                     content = content_bytes.decode("utf-8", errors="ignore")
                     is_valid_input = True
                 except: pass
-                
         else:
             stripped_args = message.content.strip()
             if stripped_args.startswith(("http://", "https://")):
@@ -423,11 +422,12 @@ async def on_message(message):
 
         if content and content.strip() and is_valid_input:
             if message.author.id != FREE_USER_ID and get_coins(message.author.id) < COST:
-                await message.reply("Insufficient funds. You need at least 10 coins to auto-dump.")
+                embed = discord.Embed(description="Insufficient funds. You need at least 10 coins.", color=discord.Color.red())
+                await message.reply(embed=embed)
                 await bot.process_commands(message)
                 return
 
-            status_msg = await message.reply("Please see the txt file / lua / raw link.")
+            status_msg = await message.reply(embed=discord.Embed(description="Processing your file...", color=discord.Color.blue()))
             
             output = beautify_lua(content)
             if output and output.strip() and output != content:
@@ -438,11 +438,11 @@ async def on_message(message):
                 if http_match:
                     extracted_url = http_match.group(1)
                     if len(output.splitlines()) <= 5 or "loadstring" in output:
-                        output = f'loadstring(game:HttpGet("{extracted_url}", true))()'
+                        output = f'loadstring(game:HttpGet("{extracted_url}"))()'
                     else:
                         output = re.sub(
                             r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',
-                            f'game:HttpGet("{extracted_url}", true)',
+                            f'game:HttpGet("{extracted_url}")',
                             output
                         )
 
@@ -453,20 +453,22 @@ async def on_message(message):
                 
                 try:
                     file_stream = io.BytesIO(final_output.encode('utf-8'))
-                    discord_file = discord.File(fp=file_stream, filename="dumped_script.txt")
+                    discord_file = discord.File(fp=file_stream, filename="message.txt")
                     
                     await message.author.send(content=f"{message.author.mention} file here", file=discord_file)
-                    
                     await status_msg.delete()
                     
-                    await message.reply(content=f"{message.author.mention} I sent the file here into your DMs! ")
+                    embed = discord.Embed(description=f"{message.author.mention} I have sent the file to your DMs!", color=discord.Color.green())
+                    await message.reply(embed=embed)
                     
                 except discord.Forbidden:
-                    await status_msg.edit(content=f"{message.author.mention} Open your DMs so I can send the file!")
+                    embed = discord.Embed(description=f"{message.author.mention} Open your DMs so I can send the file!", color=discord.Color.red())
+                    await status_msg.edit(embed=embed)
                 except Exception as e:
-                    await status_msg.edit(content=f"Error sending DM: {e}")
+                    await status_msg.edit(embed=discord.Embed(description=f"Error: {e}", color=discord.Color.red()))
             else:
-                await status_msg.edit(content=f"{message.author.mention} Auto-dump failed to process this input.")
+                embed = discord.Embed(description=f"{message.author.mention} Failed to process this input.", color=discord.Color.red())
+                await status_msg.edit(embed=embed)
 
     await bot.process_commands(message)
 
@@ -557,7 +559,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     if http_match:
         extracted_url = http_match.group(1)
         if len(output.splitlines()) <= 5 or "loadstring" in output:
-            output = f'loadstring(game:HttpGet("{extracted_url}", true))()'
+            output = f'loadstring(game:HttpGet("{extracted_url}"))()'
         else:
             output = re.sub(
                 r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',

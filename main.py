@@ -463,7 +463,8 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
                 await ctx.message.reply("Failed")
                 return
         else:
-            content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
+            content = re.sub(r'^```[a-zA-Z]*\n|
+```$', '', stripped_args, flags=re.MULTILINE)
 
     if not content or not content.strip():
         await ctx.message.reply("Please add the file / link raw")
@@ -471,7 +472,16 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
 
     status_msg = await ctx.message.reply("wait a moment")
 
-    output = beautify_lua(content)
+    if "game" in content and "HttpGet" in content:
+        cleaned_content = re.sub(
+            r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*'
+            r'game\s*:\s*HttpGet\s*\(\s*["\'](https?://[^"\']+)["\'][^)]*\)', 
+            r'game:HttpGet("\1", true)', 
+            content
+        )
+        output = beautify_lua(cleaned_content)
+    else:
+        output = beautify_lua(content)
 
     if not output or not output.strip() or output == content:
         await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
@@ -480,7 +490,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     if ctx.author.id != FREE_USER_ID:
         set_coins(ctx.author.id, get_coins(ctx.author.id) - COST)
 
-    final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output}"
+    final_output = output
 
     file_stream = io.BytesIO(final_output.encode('utf-8'))
     discord_file = discord.File(fp=file_stream, filename="message.txt")

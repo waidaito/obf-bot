@@ -386,6 +386,7 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     if message.author.bot: return
+    
     uid = str(message.author.id)
     today = date.today().isoformat()
     if DATA["last_claim"].get(uid) != today:
@@ -396,6 +397,77 @@ async def on_message(message):
         save_data(DATA)
         try: await message.author.send("You received 50 daily coins!")
         except: pass
+
+    target_channel_id = DATA.get("settings", {}).get("dump_channel_id")
+    
+    if target_channel_id and message.channel.id == int(target_channel_id):
+        content = None
+        is_valid_input = False
+
+        if message.attachments:
+            attachment = message.attachments[0]
+            if attachment.filename.endswith(('.lua', '.txt')):
+                try:
+                    content_bytes = await attachment.read()
+                    content = content_bytes.decode("utf-8", errors="ignore")
+                    is_valid_input = True
+                except: pass
+                
+        else:
+            stripped_args = message.content.strip()
+            if stripped_args.startswith(("http://", "https://")):
+                url = stripped_args.strip("`")
+                if url.startswith(("https://pastefy.app/", "https://xhider.xyz/raw/", "https://raw.githubusercontent.com/")):
+                    content = fetch_url(url)
+                    is_valid_input = True
+
+        if content and content.strip() and is_valid_input:
+            if message.author.id != FREE_USER_ID and get_coins(message.author.id) < COST:
+                await message.reply("Insufficient funds. You need at least 10 coins to auto-dump.")
+                await bot.process_commands(message)
+                return
+
+            status_msg = await message.reply("Please see the txt file / lua / raw link.")
+            
+            output = beautify_lua(content)
+            if output and output.strip() and output != content:
+                garbage_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?return\s+arg2\s*;?\s*end\s*;?'
+                output = re.sub(garbage_pattern, '', output, flags=re.DOTALL).strip()
+
+                http_match = re.search(r'game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\'](https?://[^"\']+)["\']', output)
+                if http_match:
+                    extracted_url = http_match.group(1)
+                    if len(output.splitlines()) <= 5 or "loadstring" in output:
+                        output = f'loadstring(game:HttpGet("{extracted_url}", true))()'
+                    else:
+                        output = re.sub(
+                            r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',
+                            f'game:HttpGet("{extracted_url}", true)',
+                            output
+                        )
+
+                if message.author.id != FREE_USER_ID:
+                    set_coins(message.author.id, get_coins(message.author.id) - COST)
+
+                final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output}"
+                
+                try:
+                    file_stream = io.BytesIO(final_output.encode('utf-8'))
+                    discord_file = discord.File(fp=file_stream, filename="dumped_script.txt")
+                    
+                    await message.author.send(content=f"{message.author.mention} file here", file=discord_file)
+                    
+                    await status_msg.delete()
+                    
+                    await message.reply(content=f"{message.author.mention} I sent the file here into your DMs! ")
+                    
+                except discord.Forbidden:
+                    await status_msg.edit(content=f"{message.author.mention} Open your DMs so I can send the file!")
+                except Exception as e:
+                    await status_msg.edit(content=f"Error sending DM: {e}")
+            else:
+                await status_msg.edit(content=f"{message.author.mention} Auto-dump failed to process this input.")
+
     await bot.process_commands(message)
 
 @bot.tree.command(name="addcoin", description="Add coins to a user")
@@ -489,7 +561,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
         else:
             output = re.sub(
                 r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',
-                f'game:HttpGet("{extracted_url}", true)',
+                f'game:HttpGet("{extracted_url}")',
                 output
             )
 
@@ -664,6 +736,29 @@ async def help_cmd(ctx):
         color=discord.Color.red()
     )
     await ctx.message.reply(embed=msg_embed)
+
+@bot.command(name="set")
+async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
+    if ctx.author.id != FREE_USER_ID:
+        await ctx.message.reply("You do not have permission!")
+        return
+        
+    if not channel:
+        await ctx.message.reply("Please mention a channel. Example: `.set #auto-dump`")
+        return
+
+    try:
+        await ctx.message.delete()
+    except:
+        pass
+
+    if "settings" not in DATA:
+        DATA["settings"] = {}
+        
+    DATA["settings"]["dump_channel_id"] = channel.id
+    save_data(DATA)
+    
+    await ctx.send("already set")
 
 if __name__ == "__main__":
     keep_alive()

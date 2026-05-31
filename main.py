@@ -463,8 +463,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
                 await ctx.message.reply("Failed")
                 return
         else:
-            content = re.sub(r'^```[a-zA-Z]*\n|
-```$', '', stripped_args, flags=re.MULTILINE)
+            content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
 
     if not content or not content.strip():
         await ctx.message.reply("Please add the file / link raw")

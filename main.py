@@ -472,25 +472,32 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
 
     status_msg = await ctx.message.reply("wait a moment")
 
-    if "game" in content and "HttpGet" in content:
-        cleaned_content = re.sub(
-            r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*'
-            r'game\s*:\s*HttpGet\s*\(\s*["\'](https?://[^"\']+)["\'][^)]*\)', 
-            r'game:HttpGet("\1", true)', 
-            content
-        )
-        output = beautify_lua(cleaned_content)
-    else:
-        output = beautify_lua(content)
+    output = beautify_lua(content)
 
     if not output or not output.strip() or output == content:
         await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
         return
 
+    garbage_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?return\s+arg2\s*;?\s*end\s*;?'
+    output = re.sub(garbage_pattern, '', output, flags=re.DOTALL).strip()
+
+    http_match = re.search(r'game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\'](https?://[^"\']+)["\']', output)
+    
+    if http_match:
+        extracted_url = http_match.group(1)
+        if len(output.splitlines()) <= 5 or "loadstring" in output:
+            output = f'loadstring(game:HttpGet("{extracted_url}", true))()'
+        else:
+            output = re.sub(
+                r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',
+                f'game:HttpGet("{extracted_url}", true)',
+                output
+            )
+
     if ctx.author.id != FREE_USER_ID:
         set_coins(ctx.author.id, get_coins(ctx.author.id) - COST)
 
-    final_output = output
+    final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output}"
 
     file_stream = io.BytesIO(final_output.encode('utf-8'))
     discord_file = discord.File(fp=file_stream, filename="message.txt")

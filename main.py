@@ -398,7 +398,6 @@ async def on_message(message):
         try: await message.author.send("You received 50 daily coins!")
         except: pass
 
-    # CHẶN TRÙNG LỆNH: Nếu tin nhắn bắt đầu bằng dấu chấm câu lệnh (như .dump, .obf) thì bỏ qua auto-dump
     if message.content.strip().startswith("."):
         await bot.process_commands(message)
         return
@@ -507,6 +506,7 @@ async def top_coin(ctx):
     desc = "\n".join([f"{i+1}. <@{uid}>: {amt} coins" for i, (uid, amt) in enumerate(sorted_coins)])
     embed = discord.Embed(title="list of user coins", description=desc, color=0xffd700)
     await ctx.send(embed=embed)
+
 @bot.command(name="dump")
 async def deobfuscate_cmd(ctx, *, args: str = None):
     if ctx.author.id != FREE_USER_ID:
@@ -541,19 +541,17 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
                 await ctx.message.reply("Failed: Link not supported")
                 return
         else:
-            content = re.sub(r'^```[a-zA-Z]*\n|
-```$', '', stripped_args, flags=re.MULTILINE)
+            # FIX LỖI SẬP DÒNG REGEX CHUẨN CHỈNH
+            content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
 
     if not content or not content.strip():
         await ctx.message.reply("Please add the file / link raw")
         return
 
-    # Gửi tin nhắn chờ xử lý
     status_msg = await ctx.message.reply("wait a moment")
 
     output = beautify_lua(content)
 
-    # Nếu không dump được, sửa thẳng chữ "wait a moment" thành thông báo lỗi, không để treo nữa
     if not output or not output.strip() or output == content:
         await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
         return
@@ -565,14 +563,20 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     
     if http_match:
         extracted_url = http_match.group(1)
-        if len(output.splitlines()) <= 5 or "loadstring" in output:
-            output = f'loadstring(game:HttpGet("{extracted_url}"))()'
-        else:
+        
+        # Kiểm tra xem trước chữ "game:HttpGet" có chứa code logic nào bọc lại không
+        has_leading_command = re.search(r'[\w=\(\[>]+.*game\s*:\s*[hH]ttp[gG]et', output, flags=re.DOTALL)
+
+        if has_leading_command:
+            # Nếu là script dài có logic -> Giữ nguyên code xịn, chỉ dọn dẹp đống local rác bọc quanh link
             output = re.sub(
                 r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',
                 f'game:HttpGet("{extracted_url}")',
                 output
             )
+        else:
+            # Nếu là link trần không có code bọc bên trên -> Ép thẳng về định dạng loadstring thực thi gọn gàng
+            output = f'loadstring(game:HttpGet("{extracted_url}"))()'
 
     if ctx.author.id != FREE_USER_ID:
         set_coins(ctx.author.id, get_coins(ctx.author.id) - COST)

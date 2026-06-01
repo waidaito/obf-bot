@@ -562,16 +562,22 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     
     if http_match:
         extracted_url = http_match.group(1)
-        has_real_logic = re.search(r'\b(CFrame|FireServer|HumanoidRootPart|Connect|Vector3|Color3|Instance\.new)\b', output)
+        lines_count = len(output.splitlines())
         
-        if len(output.splitlines()) > 10 and has_real_logic:
-            if re.search(r'args\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et', output) or re.search(r'v\d+\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et', output):
+        has_real_logic = re.search(r'\b(CFrame|FireServer|HumanoidRootPart|Connect|Vector3|Color3|Instance\.new|Players|LocalPlayer|CharacterAdded)\b', output)
+        has_wearedev_table = re.search(r'(?:args|v\d+|\w+)\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et', output)
+
+        if lines_count > 8 or has_real_logic:
+            if has_wearedev_table:
                 output = re.sub(
-                    r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*(?:args|v\d+)\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\']\s*\)\s*\}\s*;?.*',
-                    f'-- Extracted Script Link: {extracted_url}', 
+                    r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*(?:args|v\d+|\w+)\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\']\s*\)\s*\}\s*;?.*',
+                    '', 
                     output, 
                     flags=re.DOTALL
                 ).strip()
+                output = re.sub(r'(?:var_\d+|\w+)\s*=\s*loadstring\s*\(\s*\(\s*unpack\s+or\s+table\.unpack\s*\)\s*\(\s*(?:args|v\d+|\w+)\s*\)\s*\)\s*;?.*', '', output, flags=re.DOTALL).strip()
+                output = re.sub(r'(?:var_\d+|\w+)\s*=\s*(?:var_\d+|\w+)\(\s*\)\s*;?.*', '', output, flags=re.DOTALL).strip()
+                output += f'\n\nloadstring(game:HttpGet("{extracted_url}"))()'
             else:
                 output = re.sub(
                     r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',

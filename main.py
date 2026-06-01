@@ -439,16 +439,50 @@ async def on_message(message):
             output = beautify_lua(content)
             
             if output and output.strip() and output != content:
-                if message.author.id != FREE_USER_ID:
-                    set_coins(message.author.id, get_coins(message.author.id) - COST)
+                lines = output.splitlines()
+                if len(lines) > 0:
+                    top_limit = min(60, len(lines))
+                    top_part = "\n".join(lines[:top_limit])
+                    bottom_part = "\n".join(lines[top_limit:])
+                    
+                    garbage_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?local\s+var_8\s*=\s*function\(.*?\).*?repeat\s*until\s+false\s*;?.*?(?=local\s+\w+\s*=\s*game|loadstring|return|\Z)'
+                    top_part = re.sub(garbage_pattern, '', top_part, flags=re.DOTALL).strip()
+                    
+                    if bottom_part:
+                        output = top_part + "\n" + bottom_part
+                    else:
+                        output = top_part
 
-                final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output}"
+                final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output.strip()}"
                 
                 file_stream = io.BytesIO(final_output.encode('utf-8'))
                 discord_file = discord.File(fp=file_stream, filename="message.txt")
                 
-                await status_msg.delete()
-                await message.reply(content=f"{message.author.mention} Done.", file=discord_file)
+                # Tiến hành gửi vào DM của user trước
+                try:
+                    await message.author.send(content=f"{message.author.mention} file here", file=discord_file)
+                    dm_success = True
+                except:
+                    dm_success = False
+
+                if dm_success:
+                    if message.author.id != FREE_USER_ID:
+                        set_coins(message.author.id, get_coins(message.author.id) - COST)
+
+                    success_embed = discord.Embed(
+                        description=f"{message.author.mention} has sent the file to your DM", 
+                        color=discord.Color.green()
+                    )
+                    await status_msg.delete()
+                    await message.reply(embed=success_embed)
+                else:
+                    # Báo lỗi ra channel nếu user khóa DM
+                    error_embed = discord.Embed(
+                        description=f"{message.author.mention} Cannot send DM. Please open your Direct Messages!", 
+                        color=discord.Color.red()
+                    )
+                    await status_msg.delete()
+                    await message.reply(embed=error_embed)
             else:
                 embed = discord.Embed(description=f"{message.author.mention} Failed to process this input.", color=discord.Color.red())
                 await status_msg.edit(embed=embed)
@@ -528,18 +562,30 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
 
     status_msg = await ctx.message.reply("wait a moment")
 
-    # Chạy qua bộ lọc Dumpie gốc
     output = beautify_lua(content)
 
     if not output or not output.strip() or output == content:
         await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
         return
 
-    # Trừ coin người dùng
+    lines = output.splitlines()
+    if len(lines) > 0:
+        top_limit = min(60, len(lines))
+        top_part = "\n".join(lines[:top_limit])
+        bottom_part = "\n".join(lines[top_limit:])
+        
+        garbage_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?local\s+var_8\s*=\s*function\(.*?\).*?repeat\s*until\s+false\s*;?.*?(?=local\s+\w+\s*=\s*game|loadstring|return|\Z)'
+        top_part = re.sub(garbage_pattern, '', top_part, flags=re.DOTALL).strip()
+        
+        if bottom_part:
+            output = top_part + "\n" + bottom_part
+        else:
+            output = top_part
+
     if ctx.author.id != FREE_USER_ID:
         set_coins(ctx.author.id, get_coins(ctx.author.id) - COST)
 
-    final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output}"
+    final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output.strip()}"
 
     file_stream = io.BytesIO(final_output.encode('utf-8'))
     discord_file = discord.File(fp=file_stream, filename="message.txt")

@@ -441,32 +441,17 @@ async def on_message(message):
             if output and output.strip() and output != content:
                 lines = output.splitlines()
                 if len(lines) > 0:
-                    top_limit = min(85, len(lines))
+                    top_limit = min(60, len(lines))
                     top_part = "\n".join(lines[:top_limit])
                     bottom_part = "\n".join(lines[top_limit:])
                     
-                    clear_markers = [
-                        "% 256 + 1]) % 256 + 1];\n\t\t\tend;",
-                        "% 256 + 1]) % 256 + 1];\n\tend;",
-                        "var_9) % 256 + 1]) % 256 + 1];\n\t\t\tend;",
-                        "for i = 1, var_12.len(arg1)"
-                    ]
+                    dynamic_garbage_pattern = r'^.*for\s+i\s*=\s*1\s*,\s*var_\d+\.len\(arg1\)\s*,\s*1\s+do.*?end\s*;?'
+                    top_part = re.sub(dynamic_garbage_pattern, '', top_part, flags=re.DOTALL | re.MULTILINE).strip()
                     
-                    cut_index = -1
-                    for marker in clear_markers:
-                        idx = top_part.find(marker)
-                        if idx != -1:
-                            if "end;" in marker:
-                                cut_index = idx + len(marker)
-                            else:
-                                next_end = top_part.find("end;", idx)
-                                if next_end != -1:
-                                    cut_index = next_end + 4
-                            break
-                    
-                    if cut_index != -1:
-                        top_part = top_part[cut_index:].strip()
-                    
+                    if top_part.startswith("local lookup"):
+                        static_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?local\s+var_8\s*=\s*function\(.*?\).*?repeat\s*until\s+false\s*;?.*?(?=local\s+\w+\s*=\s*game|loadstring|return|\Z)'
+                        top_part = re.sub(static_pattern, '', top_part, flags=re.DOTALL).strip()
+
                     if bottom_part:
                         output = top_part + "\n" + bottom_part
                     else:
@@ -591,28 +576,13 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
         top_part = "\n".join(lines[:top_limit])
         bottom_part = "\n".join(lines[top_limit:])
         
-        clear_markers = [
-            "% 256 + 1]) % 256 + 1];\n\t\t\tend;",
-            "% 256 + 1]) % 256 + 1];\n\tend;",
-            "var_9) % 256 + 1]) % 256 + 1];\n\t\t\tend;",
-            "for i = 1, var_12.len(arg1)"
-        ]
+        dynamic_garbage_pattern = r'^.*for\s+i\s*=\s*1\s*,\s*var_\d+\.len\(arg1\)\s*,\s*1\s+do.*?end\s*;?'
+        top_part = re.sub(dynamic_garbage_pattern, '', top_part, flags=re.DOTALL | re.MULTILINE).strip()
         
-        cut_index = -1
-        for marker in clear_markers:
-            idx = top_part.find(marker)
-            if idx != -1:
-                if "end;" in marker:
-                    cut_index = idx + len(marker)
-                else:
-                    next_end = top_part.find("end;", idx)
-                    if next_end != -1:
-                        cut_index = next_end + 4
-                break
-        
-        if cut_index != -1:
-            top_part = top_part[cut_index:].strip()
-        
+        if top_part.startswith("local lookup"):
+            static_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?local\s+var_8\s*=\s*function\(.*?\).*?repeat\s*until\s+false\s*;?.*?(?=local\s+\w+\s*=\s*game|loadstring|return|\Z)'
+            top_part = re.sub(static_pattern, '', top_part, flags=re.DOTALL).strip()
+
         if bottom_part:
             output = top_part + "\n" + bottom_part
         else:

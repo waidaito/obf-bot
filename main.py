@@ -541,7 +541,6 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
                 await ctx.message.reply("Failed: Link not supported")
                 return
         else:
-            # FIX LỖI SẬP DÒNG REGEX CHUẨN CHỈNH
             content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
 
     if not content or not content.strip():
@@ -563,19 +562,23 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
     
     if http_match:
         extracted_url = http_match.group(1)
+        has_real_logic = re.search(r'\b(CFrame|FireServer|HumanoidRootPart|Connect|Vector3|Color3|Instance\.new)\b', output)
         
-        # Kiểm tra xem trước chữ "game:HttpGet" có chứa code logic nào bọc lại không
-        has_leading_command = re.search(r'[\w=\(\[>]+.*game\s*:\s*[hH]ttp[gG]et', output, flags=re.DOTALL)
-
-        if has_leading_command:
-            # Nếu là script dài có logic -> Giữ nguyên code xịn, chỉ dọn dẹp đống local rác bọc quanh link
-            output = re.sub(
-                r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',
-                f'game:HttpGet("{extracted_url}")',
-                output
-            )
+        if len(output.splitlines()) > 10 and has_real_logic:
+            if re.search(r'args\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et', output) or re.search(r'v\d+\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et', output):
+                output = re.sub(
+                    r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*(?:args|v\d+)\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\']\s*\)\s*\}\s*;?.*',
+                    f'-- Extracted Script Link: {extracted_url}', 
+                    output, 
+                    flags=re.DOTALL
+                ).strip()
+            else:
+                output = re.sub(
+                    r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',
+                    f'game:HttpGet("{extracted_url}")',
+                    output
+                )
         else:
-            # Nếu là link trần không có code bọc bên trên -> Ép thẳng về định dạng loadstring thực thi gọn gàng
             output = f'loadstring(game:HttpGet("{extracted_url}"))()'
 
     if ctx.author.id != FREE_USER_ID:

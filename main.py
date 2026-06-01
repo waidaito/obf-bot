@@ -395,8 +395,10 @@ async def on_message(message):
             set_coins(message.author.id, current + 50)
         DATA["last_claim"][uid] = today
         save_data(DATA)
-        try: await message.author.send("You received 50 daily coins!")
-        except: pass
+        try: 
+            await message.author.send("You received 50 daily coins!")
+        except: 
+            pass
 
     if message.content.strip().startswith("."):
         await bot.process_commands(message)
@@ -415,7 +417,8 @@ async def on_message(message):
                     content_bytes = await attachment.read()
                     content = content_bytes.decode("utf-8", errors="ignore")
                     is_valid_input = True
-                except: pass
+                except: 
+                    pass
         else:
             stripped_args = message.content.strip()
             if stripped_args.startswith(("http://", "https://")):
@@ -434,42 +437,18 @@ async def on_message(message):
             status_msg = await message.reply(embed=discord.Embed(description="Processing your file...", color=discord.Color.blue()))
             
             output = beautify_lua(content)
+            
             if output and output.strip() and output != content:
-                garbage_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?return\s+arg2\s*;?\s*end\s*;?'
-                output = re.sub(garbage_pattern, '', output, flags=re.DOTALL).strip()
-
-                http_match = re.search(r'game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\'](https?://[^"\']+)["\']', output)
-                if http_match:
-                    extracted_url = http_match.group(1)
-                    if len(output.splitlines()) <= 5 or "loadstring" in output:
-                        output = f'loadstring(game:HttpGet("{extracted_url}"))()'
-                    else:
-                        output = re.sub(
-                            r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',
-                            f'game:HttpGet("{extracted_url}")',
-                            output
-                        )
-
                 if message.author.id != FREE_USER_ID:
                     set_coins(message.author.id, get_coins(message.author.id) - COST)
 
                 final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output}"
                 
-                try:
-                    file_stream = io.BytesIO(final_output.encode('utf-8'))
-                    discord_file = discord.File(fp=file_stream, filename="message.txt")
-                    
-                    await message.author.send(content=f"{message.author.mention} file here", file=discord_file)
-                    await status_msg.delete()
-                    
-                    embed = discord.Embed(description=f"{message.author.mention} I have sent the file to your DMs!", color=discord.Color.green())
-                    await message.reply(embed=embed)
-                    
-                except discord.Forbidden:
-                    embed = discord.Embed(description=f"{message.author.mention} Open your DMs so I can send the file!", color=discord.Color.red())
-                    await status_msg.edit(embed=embed)
-                except Exception as e:
-                    await status_msg.edit(embed=discord.Embed(description=f"Error: {e}", color=discord.Color.red()))
+                file_stream = io.BytesIO(final_output.encode('utf-8'))
+                discord_file = discord.File(fp=file_stream, filename="message.txt")
+                
+                await status_msg.delete()
+                await message.reply(content=f"{message.author.mention} Done.", file=discord_file)
             else:
                 embed = discord.Embed(description=f"{message.author.mention} Failed to process this input.", color=discord.Color.red())
                 await status_msg.edit(embed=embed)
@@ -549,44 +528,14 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
 
     status_msg = await ctx.message.reply("wait a moment")
 
+    # Chạy qua bộ lọc Dumpie gốc
     output = beautify_lua(content)
 
     if not output or not output.strip() or output == content:
         await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
         return
 
-    garbage_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?return\s+arg2\s*;?\s*end\s*;?'
-    output = re.sub(garbage_pattern, '', output, flags=re.DOTALL).strip()
-
-    http_match = re.search(r'game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\'](https?://[^"\']+)["\']', output)
-    
-    if http_match:
-        extracted_url = http_match.group(1)
-        lines_count = len(output.splitlines())
-        
-        has_real_logic = re.search(r'\b(CFrame|FireServer|HumanoidRootPart|Connect|Vector3|Color3|Instance\.new|Players|LocalPlayer|CharacterAdded)\b', output)
-        has_wearedev_table = re.search(r'(?:args|v\d+|\w+)\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et', output)
-
-        if lines_count > 8 or has_real_logic:
-            if has_wearedev_table:
-                output = re.sub(
-                    r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*(?:args|v\d+|\w+)\s*=\s*\{\s*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\']\s*\)\s*\}\s*;?.*',
-                    '', 
-                    output, 
-                    flags=re.DOTALL
-                ).strip()
-                output = re.sub(r'(?:var_\d+|\w+)\s*=\s*loadstring\s*\(\s*\(\s*unpack\s+or\s+table\.unpack\s*\)\s*\(\s*(?:args|v\d+|\w+)\s*\)\s*\)\s*;?.*', '', output, flags=re.DOTALL).strip()
-                output = re.sub(r'(?:var_\d+|\w+)\s*=\s*(?:var_\d+|\w+)\(\s*\)\s*;?.*', '', output, flags=re.DOTALL).strip()
-                output += f'\n\nloadstring(game:HttpGet("{extracted_url}"))()'
-            else:
-                output = re.sub(
-                    r'(?:local\s+\w+\s*=\s*\{[^}]*\}\s*;?\s*)*game\s*:\s*[hH]ttp[gG]et\s*\(\s*["\']https?://[^"\']+["\'][^)]*\)',
-                    f'game:HttpGet("{extracted_url}")',
-                    output
-                )
-        else:
-            output = f'loadstring(game:HttpGet("{extracted_url}"))()'
-
+    # Trừ coin người dùng
     if ctx.author.id != FREE_USER_ID:
         set_coins(ctx.author.id, get_coins(ctx.author.id) - COST)
 

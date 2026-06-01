@@ -398,6 +398,11 @@ async def on_message(message):
         try: await message.author.send("You received 50 daily coins!")
         except: pass
 
+    # CHẶN TRÙNG LỆNH: Nếu tin nhắn bắt đầu bằng dấu chấm câu lệnh (như .dump, .obf) thì bỏ qua auto-dump
+    if message.content.strip().startswith("."):
+        await bot.process_commands(message)
+        return
+
     target_channel_id = DATA.get("settings", {}).get("dump_channel_id")
     
     if target_channel_id and message.channel.id == int(target_channel_id):
@@ -502,7 +507,6 @@ async def top_coin(ctx):
     desc = "\n".join([f"{i+1}. <@{uid}>: {amt} coins" for i, (uid, amt) in enumerate(sorted_coins)])
     embed = discord.Embed(title="list of user coins", description=desc, color=0xffd700)
     await ctx.send(embed=embed)
-
 @bot.command(name="dump")
 async def deobfuscate_cmd(ctx, *, args: str = None):
     if ctx.author.id != FREE_USER_ID:
@@ -531,22 +535,25 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
             if url.startswith(("https://pastefy.app/","https://xhider.xyz/raw/","https://raw.githubusercontent.com/")):
                 content = fetch_url(url)
                 if not content or not content.strip():
-                    await ctx.message.reply("Failed")
+                    await ctx.message.reply("Failed to fetch link content")
                     return
             else:
-                await ctx.message.reply("Failed")
+                await ctx.message.reply("Failed: Link not supported")
                 return
         else:
-            content = re.sub(r'^```[a-zA-Z]*\n|```$', '', stripped_args, flags=re.MULTILINE)
+            content = re.sub(r'^```[a-zA-Z]*\n|
+```$', '', stripped_args, flags=re.MULTILINE)
 
     if not content or not content.strip():
         await ctx.message.reply("Please add the file / link raw")
         return
 
+    # Gửi tin nhắn chờ xử lý
     status_msg = await ctx.message.reply("wait a moment")
 
     output = beautify_lua(content)
 
+    # Nếu không dump được, sửa thẳng chữ "wait a moment" thành thông báo lỗi, không để treo nữa
     if not output or not output.strip() or output == content:
         await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
         return
@@ -746,7 +753,7 @@ async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
         return
         
     if not channel:
-        await ctx.message.reply("Please mention a channel. Example: `.set #auto-dump`")
+        await ctx.message.reply("Please mention a channel. Example: `.set #channel`")
         return
 
     try:

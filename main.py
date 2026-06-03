@@ -18,6 +18,7 @@ PRETTY_MODE = True
 FREE_USER_ID = 1219951796982648913
 TASK_URL = "https://link4m.net/go/TI87SLwl"
 COST = 10
+COST_8XMS = 3000
 DATA_FILE = "data.json"
 
 def load_data():
@@ -105,10 +106,21 @@ def ironbrew_total_wrapped_v10_6(source_code):
    fake_signature = "".join(random.choices(string.ascii_uppercase, k=3))
    bytecode_string_block = f"[=[{fake_signature}:{hex_payload}]=]"
    
+   # Mã hóa ngầm loadstring và load thành Hex XOR
+   hex_loadstring = "".join([f"{ord(c) ^ secret_key:02X}" for c in "loadstring"])
+   hex_load = "".join([f"{ord(c) ^ secret_key:02X}" for c in "load"])
+   
+   # LẤY ĐỘ DÀI TRƯỚC ĐỂ FIX LỖI LỒNG F-STRING PHÍA DƯỚI
+   len_ls = len(hex_loadstring)
+   len_l = len(hex_load)
+   
    v_bit_func, v_w, v_m, v_x, v_i, v_j, v_res = [random_var() for _ in range(7)]
    v_bytecode, v_buffer, v_func, v_run = [random_var() for _ in range(4)]
    v_idx, v_pair, v_num, v_dec = [random_var() for _ in range(4)]
-   v_loop_idx = random_var()
+   v_loop_idx, v_env = random_var(), random_var()
+   
+   v_str1, v_str2, v_t_idx, v_t_pair = [random_var() for _ in range(4)]
+   v_h_ls, v_h_l = random_var(), random_var()
 
    junk_pieces = []
    for _ in range(2000):
@@ -121,25 +133,59 @@ def ironbrew_total_wrapped_v10_6(source_code):
    junk_bottom = ";".join(junk_pieces[half:])
 
    bit_and_interpreter_core = (
-       f"local function {v_bit_func}({v_i},{v_j}) local {v_x}=0; for {v_m}=0,7 do "
-       f"local {v_w}=({v_i}/{obfuscate_to_mixed_math(2)}^{v_m})%2; local {v_res}=({v_j}/{obfuscate_to_mixed_math(2)}^{v_m})%2; "
-       f"if {v_w}-{v_w}%1 ~={v_res}-{v_res}%1 then {v_x}={v_x}+{obfuscate_to_mixed_math(2)}^{v_m} end end return {v_x} end; "
-       f"local {v_bytecode}={bytecode_string_block}; local {v_buffer}=\"\"; "
+       f"local function {v_bit_func}({v_i},{v_j}) "
+       f"local {v_x}=0; "
+       f"for {v_m}=0,7 do "
+       f"local {v_w}=({v_i}/{obfuscate_to_mixed_math(2)}^{v_m})%2; "
+       f"local {v_res}=({v_j}/{obfuscate_to_mixed_math(2)}^{v_m})%2; "
+       f"if {v_w}-{v_w}%1~={v_res}-{v_res}%1 then "
+       f"{v_x}={v_x}+{obfuscate_to_mixed_math(2)}^{v_m} "
+       f"end "
+       f"end "
+       f"return {v_x} "
+       f"end; "
+       f"local {v_bytecode}={bytecode_string_block}; "
+       f"local {v_h_ls}=\"{hex_loadstring}\"; "
+       f"local {v_h_l}=\"{hex_load}\"; "
+       f"local {v_buffer}=\"\"; "
        f"for {v_loop_idx}={obfuscate_to_mixed_math(1)},{obfuscate_to_mixed_math(2)} do "
        f"if {v_loop_idx}=={obfuscate_to_mixed_math(1)} then "
-       f"local h_clean=string.sub({v_bytecode},5); for {v_idx}=1,#h_clean,2 do "
-       f"local {v_pair}=string.sub(h_clean,{v_idx},{v_idx}+1); local {v_num}=tonumber({v_pair},16); "
+       f"local h_clean=string.sub({v_bytecode},5); "
+       f"for {v_idx}=1,#h_clean,2 do "
+       f"local {v_pair}=string.sub(h_clean,{v_idx},{v_idx}+1); "
+       f"local {v_num}=tonumber({v_pair},16); "
        f"local {v_dec}={v_bit_func}({v_num},{obfuscate_to_mixed_math(secret_key)}); "
-       f"{v_buffer}={v_buffer}..string.char({v_dec}) end "
+       f"{v_buffer}={v_buffer}..string.char({v_dec}) "
+       f"end "
        f"elseif {v_loop_idx}=={obfuscate_to_mixed_math(2)} then "
-       f"local {v_func}=loadstring or load; local {v_run}={v_func}({v_buffer}); if {v_run} then {v_run}(...) end "
-       f"end end"
+       f"local {v_str1}, {v_str2} = \"\", \"\"; "
+       f"for {v_t_idx}=1,{obfuscate_to_mixed_math(len_ls)},2 do "
+       f"local {v_t_pair}=string.sub({v_h_ls},{v_t_idx},{v_t_idx}+1); "
+       f"if #{v_t_pair}==2 then "
+       f"{v_str1}={v_str1}..string.char({v_bit_func}(tonumber({v_t_pair},16),{obfuscate_to_mixed_math(secret_key)})) "
+       f"end "
+       f"end; "
+       f"for {v_t_idx}=1,{obfuscate_to_mixed_math(len_l)},2 do "
+       f"local {v_t_pair}=string.sub({v_h_l},{v_t_idx},{v_t_idx}+1); "
+       f"if #{v_t_pair}==2 then "
+       f"{v_str2}={v_str2}..string.char({v_bit_func}(tonumber({v_t_pair},16),{obfuscate_to_mixed_math(secret_key)})) "
+       f"end "
+       f"end; "
+       f"local {v_env}=getfenv(); "
+       f"local {v_func}={v_env}[{v_str1}] or {v_env}[{v_str2}]; "
+       f"local {v_run}={v_func}({v_buffer}); "
+       f"if {v_run} then {v_run}(...) end "
+       f"end "
+       f"end"
    )
 
    total_payload = f"{junk_top};{bit_and_interpreter_core};{junk_bottom}"
-   clean_payload = " ".join(total_payload.splitlines()).strip().replace(" ; ", ";").replace(" = ", "=").replace(", ", ",")
    
-   return f"-- This file was created by 8xms v2.0 discord.gg/8mktK8HtT --\nreturn(function(...) {clean_payload} end)(...)"
+   clean_payload = " ".join(total_payload.splitlines()).strip()
+   clean_payload = re.sub(r'\s*;\s*', ';', clean_payload)
+   clean_payload = re.sub(r'\s*=\s*', '=', clean_payload)
+   
+   return f"-- This file was created by 8xms v2.0 discord.gg/a8rJjxFaE  --\nreturn(function(...) {clean_payload} end)(...)"
 
 def compress_loadstring_patterns(lua_code):
    if not lua_code: return ""
@@ -447,6 +493,99 @@ def fetch_url(url):
    except Exception:
        return None
 
+class DumpSelectionView(discord.ui.View):
+   def __init__(self, author, content, status_msg=None, ctx=None):
+       super().__init__(timeout=60)
+       self.author = author
+       self.content = content
+       self.status_msg = status_msg
+       self.ctx = ctx
+
+   async def interaction_check(self, interaction: discord.Interaction) -> bool:
+       if interaction.user.id != self.author.id:
+           await interaction.response.send_message("Đây không phải bảng điều khiển của bạn!", ephemeral=True)
+           return False
+       return True
+
+   async def execute_dump(self, interaction: discord.Interaction, cost_amount, dump_type):
+       if self.author.id != FREE_USER_ID and get_coins(self.author.id) < cost_amount:
+           embed = discord.Embed(description=f"Insufficient funds. You need at least {cost_amount} coins.", color=discord.Color.red())
+           if self.status_msg:
+               await self.status_msg.edit(embed=embed, view=None)
+           else:
+               await interaction.response.send_message(embed=embed, ephemeral=True)
+           return
+
+       await interaction.response.defer()
+
+       if dump_type == "wearedev":
+           output = beautify_lua(self.content)
+           if output and output.strip() and output != self.content:
+               lines = output.splitlines()
+               if len(lines) > 0:
+                   top_limit = min(60, len(lines))
+                   top_part = "\n".join(lines[:top_limit])
+                   bottom_part = "\n".join(lines[top_limit:])
+                  
+                   dynamic_garbage_pattern = r'^.*for\s+i\s*=\s*1\s*,\s*var_\d+\.len\(arg1\)\s*,\s*1\s+do.*?end\s*;?'
+                   top_part = re.sub(dynamic_garbage_pattern, '', top_part, flags=re.DOTALL | re.MULTILINE).strip()
+                  
+                   if top_part.startswith("local lookup"):
+                       static_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?local\s+var_8\s*=\s*function\(.*?\).*?repeat\s*until\s+false\s*;?.*?(?=local\s+\w+\s*=\s*game|loadstring|return|\Z)'
+                       top_part = re.sub(static_pattern, '', top_part, flags=re.DOTALL).strip()
+
+                   if bottom_part:
+                       output = top_part + "\n" + bottom_part
+                   else:
+                       output = top_part
+
+               final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output.strip()}"
+               file_stream = io.BytesIO(final_output.encode('utf-8'))
+               discord_file = discord.File(fp=file_stream, filename="message.txt")
+              
+               try:
+                   await self.author.send(content=f"{self.author.mention} file here", file=discord_file)
+                   dm_success = True
+               except:
+                   dm_success = False
+
+               if dm_success:
+                   if self.author.id != FREE_USER_ID:
+                       set_coins(self.author.id, get_coins(self.author.id) - cost_amount)
+
+                   success_embed = discord.Embed(description=f"{self.author.mention} has sent the file to your DM", color=discord.Color.green())
+                   if self.status_msg:
+                       await self.status_msg.edit(embed=success_embed, view=None)
+                   elif self.ctx:
+                       await self.ctx.send(embed=success_embed)
+               else:
+                   error_embed = discord.Embed(description=f"{self.author.mention} Cannot send DM. Please open your Direct Messages!", color=discord.Color.red())
+                   if self.status_msg:
+                       await self.status_msg.edit(embed=error_embed, view=None)
+                   elif self.ctx:
+                       await self.ctx.send(embed=error_embed)
+           else:
+               fail_embed = discord.Embed(description=f"{self.author.mention} Failed to process this input.", color=discord.Color.red())
+               if self.status_msg:
+                   await self.status_msg.edit(embed=fail_embed, view=None)
+               elif self.ctx:
+                   await self.ctx.send(embed=fail_embed)
+       else:
+           fail_embed = discord.Embed(description=f"{self.author.mention} done", color=discord.Color.orange())
+           if self.status_msg:
+               await self.status_msg.edit(embed=fail_embed, view=None)
+           elif self.ctx:
+               await self.ctx.send(embed=fail_embed)
+
+   @discord.ui.button(label="wearedev", style=discord.ButtonStyle.primary)
+   async def wearedev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+       await self.execute_dump(interaction, COST, "wearedev")
+
+   @discord.ui.button(label="8xms", style=discord.ButtonStyle.danger)
+   async def eightxms_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+       await self.execute_dump(interaction, COST_8XMS, "8xms")
+
+
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -507,66 +646,10 @@ async def on_message(message):
                    is_valid_input = True
 
        if content and content.strip() and is_valid_input:
-           if message.author.id != FREE_USER_ID and get_coins(message.author.id) < COST:
-               embed = discord.Embed(description="Insufficient funds. You need at least 10 coins.", color=discord.Color.red())
-               await message.reply(embed=embed)
-               await bot.process_commands(message)
-               return
-
-           status_msg = await message.reply(embed=discord.Embed(description="Processing your file...", color=discord.Color.blue()))
-          
-           output = beautify_lua(content)
-          
-           if output and output.strip() and output != content:
-               lines = output.splitlines()
-               if len(lines) > 0:
-                   top_limit = min(60, len(lines))
-                   top_part = "\n".join(lines[:top_limit])
-                   bottom_part = "\n".join(lines[top_limit:])
-                  
-                   dynamic_garbage_pattern = r'^.*for\s+i\s*=\s*1\s*,\s*var_\d+\.len\(arg1\)\s*,\s*1\s+do.*?end\s*;?'
-                   top_part = re.sub(dynamic_garbage_pattern, '', top_part, flags=re.DOTALL | re.MULTILINE).strip()
-                  
-                   if top_part.startswith("local lookup"):
-                       static_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?local\s+var_8\s*=\s*function\(.*?\).*?repeat\s*until\s+false\s*;?.*?(?=local\s+\w+\s*=\s*game|loadstring|return|\Z)'
-                       top_part = re.sub(static_pattern, '', top_part, flags=re.DOTALL).strip()
-
-                   if bottom_part:
-                       output = top_part + "\n" + bottom_part
-                   else:
-                       output = top_part
-
-               final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output.strip()}"
-              
-               file_stream = io.BytesIO(final_output.encode('utf-8'))
-               discord_file = discord.File(fp=file_stream, filename="message.txt")
-              
-               try:
-                   await message.author.send(content=f"{message.author.mention} file here", file=discord_file)
-                   dm_success = True
-               except:
-                   dm_success = False
-
-               if dm_success:
-                   if message.author.id != FREE_USER_ID:
-                       set_coins(message.author.id, get_coins(message.author.id) - COST)
-
-                   success_embed = discord.Embed(
-                       description=f"{message.author.mention} has sent the file to your DM", 
-                       color=discord.Color.green()
-                   )
-                   await status_msg.delete()
-                   await message.reply(embed=success_embed)
-               else:
-                   error_embed = discord.Embed(
-                       description=f"{message.author.mention} Cannot send DM. Please open your Direct Messages!", 
-                       color=discord.Color.red()
-                   )
-                   await status_msg.delete()
-                   await message.reply(embed=error_embed)
-           else:
-               embed = discord.Embed(description=f"{message.author.mention} Failed to process this input.", color=discord.Color.red())
-               await status_msg.edit(embed=embed)
+           embed_select = discord.Embed(title="select", description="Choose a dump method below. :", color=0x000000)
+           status_msg = await message.reply(embed=embed_select)
+           view = DumpSelectionView(author=message.author, content=content, status_msg=status_msg)
+           await status_msg.edit(view=view)
 
    await bot.process_commands(message)
 
@@ -603,11 +686,6 @@ async def top_coin(ctx):
 
 @bot.command(name="dump")
 async def deobfuscate_cmd(ctx, *, args: str = None):
-   if ctx.author.id != FREE_USER_ID:
-       if get_coins(ctx.author.id) < COST:
-           await ctx.message.reply("Insufficient funds. You need at least 10 coins.")
-           return
-
    content = None
 
    if ctx.message.attachments:
@@ -641,42 +719,10 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
        await ctx.message.reply("Please add the file / link raw")
        return
 
-   status_msg = await ctx.message.reply("<a:loading:1477881141678702603> Processing ")
-
-   output = beautify_lua(content)
-
-   if not output or not output.strip() or output == content:
-       await status_msg.edit(content=f"{ctx.author.mention} Failed to deobfuscate code")
-       return
-
-   lines = output.splitlines()
-   if len(lines) > 0:
-       top_limit = min(60, len(lines))
-       top_part = "\n".join(lines[:top_limit])
-       bottom_part = "\n".join(lines[top_limit:])
-       
-       dynamic_garbage_pattern = r'^.*for\s+i\s*=\s*1\s*,\s*var_\d+\.len\(arg1\)\s*,\s*1\s+do.*?end\s*;?'
-       top_part = re.sub(dynamic_garbage_pattern, '', top_part, flags=re.DOTALL | re.MULTILINE).strip()
-       
-       if top_part.startswith("local lookup"):
-           static_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?local\s+var_8\s*=\s*function\(.*?\).*?repeat\s*until\s+false\s*;?.*?(?=local\s+\w+\s*=\s*game|loadstring|return|\Z)'
-           top_part = re.sub(static_pattern, '', top_part, flags=re.DOTALL).strip()
-
-       if bottom_part:
-           output = top_part + "\n" + bottom_part
-       else:
-           output = top_part
-
-   if ctx.author.id != FREE_USER_ID:
-       set_coins(ctx.author.id, get_coins(ctx.author.id) - COST)
-
-   final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output.strip()}"
-
-   file_stream = io.BytesIO(final_output.encode('utf-8'))
-   discord_file = discord.File(fp=file_stream, filename="message.txt")
-   
-   await status_msg.delete()
-   await ctx.message.reply(content=f"{ctx.author.mention} Done.", file=discord_file)
+   embed_select = discord.Embed(title="select", description="Choose the dump type below:", color=0x000000)
+   status_msg = await ctx.message.reply(embed=embed_select)
+   view = DumpSelectionView(author=ctx.author, content=content, status_msg=status_msg, ctx=ctx)
+   await status_msg.edit(view=view)
 
 @bot.command(name="obf")
 async def obfuscate_lua(ctx, *, text_code: str = None):
@@ -805,7 +851,7 @@ async def help_cmd(ctx):
        "`.buycoin`  get task link to earn coins\n"
        "`.detect`  detect obfuscators type\n"
        "`.dump`  deobfuscator(wearedev) script (Cost: 10 coins)\n"
-       "`.obf`  obfuscate script using 8xms v2.0 (Cost: 10 coins)"
+       "`.obf`  obfuscate script using 8xms v2.0 Deployed (Cost: 10 coins)"
    )
   
    msg_embed = discord.Embed(
@@ -840,31 +886,4 @@ async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
 
 if __name__ == "__main__":
    keep_alive()
-   bot.run(TOKEN)
-
-@bot.command(name="set")
-async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
-   if ctx.author.id != FREE_USER_ID:
-       await ctx.message.reply("You do not have permission!")
-       return
-      
-   if not channel:
-       await ctx.message.reply("Please mention a channel. Example: `.set #channel`")
-       return
-
-   try:
-       await ctx.message.delete()
-   except:
-       pass
-
-   if "settings" not in DATA:
-       DATA["settings"] = {}
-      
-   DATA["settings"]["dump_channel_id"] = channel.id
-   save_data(DATA)
-  
-   await ctx.send("already set")
-
-if __name__ == "__main__":
-   keep_alive()
-   bot.run(TOKEN)
+   bot.run(TOK

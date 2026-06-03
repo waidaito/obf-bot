@@ -3,14 +3,12 @@ import io
 import re
 import string
 import random
-import time
+import json
 import requests
 import discord
-import aiohttp
-import json
 from discord.ext import commands
 from discord import app_commands
-from datetime import datetime, date
+from datetime import date
 from flask import Flask
 from threading import Thread
 
@@ -173,7 +171,7 @@ def sanitize_junk_expressions(lua_code):
    for i, line in enumerate(lines):
        if ".Connect(" in line:
            lines[i] = re.sub(r'([\w_]+)\.([\w_]+)\.Connect\(\s*[\w_.]+\s*,\s*([\w_]+)\s*\)', r'\1.\2:Connect(\3)', line)
-       
+      
    lua_code = "\n".join(lines)
 
    junk_call_pattern = r'\([0-9]{10,}\)\s*\([^)]*\);?'
@@ -195,7 +193,7 @@ def sanitize_junk_expressions(lua_code):
            cleaned_lines.append(line)
        else:
            cleaned_lines.append(line)
-       
+      
    return "\n".join(cleaned_lines)
 
 def normalize_variables(lua_code):
@@ -226,10 +224,10 @@ def normalize_variables(lua_code):
        placeholder = f"___TEMP_VAR_XYZ_{idx}___"
        placeholder_map[placeholder] = f"var_{idx}"
        lua_code = re.sub(r'\b' + re.escape(old_var) + r'\b', placeholder, lua_code)
-       
+      
    for placeholder, clean_name in placeholder_map.items():
        lua_code = lua_code.replace(placeholder, clean_name)
-       
+      
    global_rename_map = {}
 
    service_capture_pattern = r'(?:(local\s+)?(\w+)\s*=\s*)?(?:game|cloneref\s*\(\s*game\s*\))[.:][gG]etService\s*\(\s*(?:game\s*,\s*)?["\'](\w+)["\']\s*\)'
@@ -248,24 +246,24 @@ def normalize_variables(lua_code):
                lines[i] = f'{indent}local {service_name} = game:GetService("{service_name}")'
 
    lua_code = "\n".join(lines)
-   
+  
    lines = lua_code.splitlines()
    for i, line in enumerate(lines):
        alias_match = re.search(r'(?:local\s+)?\b(var_\d+|v\d+)\b\s*=\s*\b(\w+)\b\s*;?', line)
        if alias_match:
            bad_alias = alias_match.group(1)
            good_service = alias_match.group(2)
-           
+          
            valid_services = [
                "Players", "ReplicatedStorage", "RunService", "UserInputService", 
                "Lighting", "Workspace", "CoreGui", "Teams", "SoundService", 
                "StarterGui", "TweenService", "HttpService", "TeleportService"
            ]
-           
+          
            if good_service in global_rename_map.values() or good_service in valid_services:
                global_rename_map[bad_alias] = good_service
                lines[i] = "" 
-               
+              
    lua_code = "\n".join(lines)
 
    lines = lua_code.splitlines()
@@ -347,10 +345,10 @@ def unflatten_control_flow(lua_code):
    blocks = block_pattern.findall(lua_code)
    if not blocks:
        return lua_code
-       
+      
    block_map = {}
    start_state = None
-   
+  
    state_init = re.search(r'local\s+\w+\s*=\s*([0-9\x22\x27\w]+)', lua_code)
    if state_init:
        start_state = state_init.group(1)
@@ -358,7 +356,7 @@ def unflatten_control_flow(lua_code):
    for state_val, block_content in blocks:
        block_content_stripped = block_content.strip()
        lines = block_content_stripped.splitlines()
-       
+      
        next_state = None
        if lines:
            last_line = lines[-1].strip()
@@ -387,7 +385,7 @@ def unflatten_control_flow(lua_code):
 
    if reconstructed_lines:
        return "\n".join(reconstructed_lines)
-       
+      
    return lua_code
 
 def decode_bytecode_escapes(lua_code):
@@ -397,7 +395,7 @@ def decode_bytecode_escapes(lua_code):
        escapes = re.findall(r'\\([0-9]{3})', full_str)
        if not escapes:
            return full_str
-           
+          
        try:
            decoded = "".join(chr(int(num)) for num in escapes)
            decoded = decoded.replace('"', '\\"').replace('\n', '\\n')
@@ -437,7 +435,7 @@ def beautify_lua(content):
    step3 = sanitize_junk_expressions(step2)
    step4 = normalize_variables(step3)
    final_clean = compress_loadstring_patterns(step4)
-   
+  
    return final_clean
 
 def fetch_url(url):
@@ -467,7 +465,7 @@ async def on_ready():
 @bot.event
 async def on_message(message):
    if message.author.bot: return
-   
+  
    uid = str(message.author.id)
    today = date.today().isoformat()
    if DATA["last_claim"].get(uid) != today:
@@ -486,7 +484,7 @@ async def on_message(message):
        return
 
    target_channel_id = DATA.get("settings", {}).get("dump_channel_id")
-   
+  
    if target_channel_id and message.channel.id == int(target_channel_id):
        content = None
        is_valid_input = False
@@ -516,19 +514,19 @@ async def on_message(message):
                return
 
            status_msg = await message.reply(embed=discord.Embed(description="Processing your file...", color=discord.Color.blue()))
-           
+          
            output = beautify_lua(content)
-           
+          
            if output and output.strip() and output != content:
                lines = output.splitlines()
                if len(lines) > 0:
                    top_limit = min(60, len(lines))
                    top_part = "\n".join(lines[:top_limit])
                    bottom_part = "\n".join(lines[top_limit:])
-                   
+                  
                    dynamic_garbage_pattern = r'^.*for\s+i\s*=\s*1\s*,\s*var_\d+\.len\(arg1\)\s*,\s*1\s+do.*?end\s*;?'
                    top_part = re.sub(dynamic_garbage_pattern, '', top_part, flags=re.DOTALL | re.MULTILINE).strip()
-                   
+                  
                    if top_part.startswith("local lookup"):
                        static_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?local\s+var_8\s*=\s*function\(.*?\).*?repeat\s*until\s+false\s*;?.*?(?=local\s+\w+\s*=\s*game|loadstring|return|\Z)'
                        top_part = re.sub(static_pattern, '', top_part, flags=re.DOTALL).strip()
@@ -539,10 +537,10 @@ async def on_message(message):
                        output = top_part
 
                final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output.strip()}"
-               
+              
                file_stream = io.BytesIO(final_output.encode('utf-8'))
                discord_file = discord.File(fp=file_stream, filename="message.txt")
-               
+              
                try:
                    await message.author.send(content=f"{message.author.mention} file here", file=discord_file)
                    dm_success = True
@@ -643,7 +641,7 @@ async def deobfuscate_cmd(ctx, *, args: str = None):
        await ctx.message.reply("Please add the file / link raw")
        return
 
-   status_msg = await ctx.message.reply("<a:loading:1477881141678702603> Processing")
+   status_msg = await ctx.message.reply("<a:loading:1477881141678702603> Processing ")
 
    output = beautify_lua(content)
 
@@ -708,7 +706,7 @@ async def obfuscate_lua(ctx, *, text_code: str = None):
        await ctx.send("Please add txt / lua file.")
        return
 
-   progress_msg = await ctx.send("<a:loading:1477881141678702603> Processing")
+   progress_msg = await ctx.send("<a:loading:1477881141678702603> Processing ")
 
    try:
        fixed_code = ironbrew_total_wrapped_v10_6(lua_content)
@@ -795,7 +793,7 @@ async def detect_obfuscator(ctx, *, args: str = None):
        description=f"Result: **{result}**",
        color=discord.Color.red()
    )
-   
+  
    await ctx.message.reply(embed=msg_embed)
 
 @bot.command(name="help")
@@ -809,7 +807,7 @@ async def help_cmd(ctx):
        "`.dump`  deobfuscator(wearedev) script (Cost: 10 coins)\n"
        "`.obf`  obfuscate script using 8xms v2.0 (Cost: 10 coins)"
    )
-   
+  
    msg_embed = discord.Embed(
        title="Command",
        description=help_text,
@@ -822,7 +820,7 @@ async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
    if ctx.author.id != FREE_USER_ID:
        await ctx.message.reply("You do not have permission!")
        return
-       
+      
    if not channel:
        await ctx.message.reply("Please mention a channel. Example: `.set #channel`")
        return
@@ -834,26 +832,22 @@ async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
 
    if "settings" not in DATA:
        DATA["settings"] = {}
-       
+      
    DATA["settings"]["dump_channel_id"] = channel.id
    save_data(DATA)
-   
+  
    await ctx.send("already set")
 
 if __name__ == "__main__":
    keep_alive()
-   bot.run(TOKEN) title="Command",
-       description=help_text,
-       color=discord.Color.red()
-   )
-   await ctx.message.reply(embed=msg_embed)
+   bot.run(TOKEN)
 
 @bot.command(name="set")
 async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
    if ctx.author.id != FREE_USER_ID:
        await ctx.message.reply("You do not have permission!")
        return
-       
+      
    if not channel:
        await ctx.message.reply("Please mention a channel. Example: `.set #channel`")
        return
@@ -865,12 +859,12 @@ async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
 
    if "settings" not in DATA:
        DATA["settings"] = {}
-       
+      
    DATA["settings"]["dump_channel_id"] = channel.id
    save_data(DATA)
-   
+  
    await ctx.send("already set")
 
 if __name__ == "__main__":
    keep_alive()
-   bot.run("TOKEN")
+   bot.run(TOKEN)

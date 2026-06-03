@@ -6,7 +6,7 @@ import random
 import json
 import requests
 import discord
-from discord.ext import commands
+   from discord.ext import commands
 from discord import app_commands
 from datetime import date
 from flask import Flask
@@ -49,7 +49,7 @@ def home():
    return "Bot is live"
 
 def run():
-   app.run(host='0.0.0.0', port=8000)
+   app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
    t = Thread(target=run)
@@ -495,24 +495,24 @@ class DumpSelectionView(discord.ui.View):
                await self.ctx.reply(f"Insufficient funds. You need at least {COST_8XMS} coins.")
            return
 
-       result = dump_8xms_v10_6(self.content)
-       if result.startswith("Error"):
-           await self.status_msg.delete()
-           if self.is_channel_mode:
-               await self.ctx.reply(embed=discord.Embed(description=result, color=discord.Color.red()))
-           else:
-               await self.ctx.reply(result)
+        result = dump_8xms_v10_6(self.content)
+        if result.startswith("Error"):
+            await self.status_msg.delete()
+            if self.is_channel_mode:
+                await self.ctx.reply(embed=discord.Embed(description=result, color=discord.Color.red()))
+            else:
+                await self.ctx.reply(result)
         else:
             final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{result.strip()}"
             file_stream = io.BytesIO(final_output.encode('utf-8'))
             discord_file = discord.File(fp=file_stream, filename="message.txt")
-           
-           if self.is_channel_mode:
-               try:
-                   await self.ctx.author.send(content=f"{self.ctx.author.mention} file here", file=discord_file)
-                   dm_success = True
-               except:
-                   dm_success = False
+            
+            if self.is_channel_mode:
+                try:
+                    await self.ctx.author.send(content=f"{self.ctx.author.mention} file here", file=discord_file)
+                    dm_success = True
+                except:
+                    dm_success = False
 
                if dm_success:
                    if self.ctx.author.id != FREE_USER_ID:
@@ -776,9 +776,9 @@ async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
        
    DATA["settings"]["dump_channel_id"] = channel.id
    save_data(DATA)
-   
+
    await ctx.send("already set")
 
 if __name__ == "__main__":
    keep_alive()
-   bot.run(TOKEN)
+   bot.run(TOK

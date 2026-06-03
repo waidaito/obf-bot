@@ -6,7 +6,7 @@ import random
 import json
 import requests
 import discord
-   from discord.ext import commands
+from discord.ext import commands
 from discord import app_commands
 from datetime import date
 from flask import Flask
@@ -505,7 +505,7 @@ class DumpSelectionView(discord.ui.View):
         else:
             final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{result.strip()}"
             file_stream = io.BytesIO(final_output.encode('utf-8'))
-            discord_file = discord.File(fp=file_stream, filename="message.txt")
+            discord_file = discord.File(fp=file_stream, filename="message.txt")            
             
             if self.is_channel_mode:
                 try:
@@ -781,4 +781,4 @@ async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
 
 if __name__ == "__main__":
    keep_alive()
-   bot.run(TOKEN)
+   bot.run(TOK

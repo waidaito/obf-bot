@@ -376,36 +376,54 @@ def safe_math_eval(expr):
     except:
         return None
 
-def dump_8xms_v10_6(obfuscated_code):
+def dump_8xms_rolling_key(obfuscated_code):
     try:
         hex_block_match = re.search(r'\[=\[[A-Z]{3}:([0-9A-Fa-f]+)\]=\]', obfuscated_code)
-        if hex_block_match:
-            hex_payload = hex_block_match.group(1)
-            key_math_match = re.search(r'tonumber\([^)]+\);\s*local\s+\w+=\w+\(\w+,\s*([0-9xXa-fA-F+\-()*\/.\s]+)\);', obfuscated_code)
-            if not key_math_match:
-                key_math_match = re.search(r'=\w+\(\w+,\s*([0-9xXa-fA-F+\-()*\/.\s]+)\);\s*\w+=\w+\.\.string\.char', obfuscated_code)
-            if not key_math_match:
-                return "Error: Failed to extract Secret Key mathematical expression."
+        if not hex_block_match:
+            return "Error: Target code does not contain a valid hex block payload."
+            
+        hex_payload = hex_block_match.group(1)
+        
+        core_match = re.search(r'string\.sub\([^,]+,\s*5\)\s*;\s*local\s+\w+\s*=\s*([^\n;]+);\s*local\s+\w+\s*=\s*0\s*;\s*for', obfuscated_code)
+        if not core_match:
+            core_match = re.search(r'local\s+h_clean\s*=\s*string\.sub\([^,]+,\s*5\)\s*local\s+\w+\s*=\s*([^\n;]+);\s*local\s+\w+\s*=\s*0\s*;\s*for', obfuscated_code)
+            
+        if not core_match:
+            core_match = re.search(r'string\.sub\([^,]+,\s*5\)\s*local\s+\w+\s*=\s*([^\n;]+);\s*local\s+\w+\s*=\s*0\s*;\s*for', obfuscated_code)
 
-            math_expression = key_math_match.group(1).strip().rstrip(';')
-            secret_key = safe_math_eval(math_expression)
+        if not core_match:
+            return "Error: Failed to locate the secure initialization of rolling key inside core."
+            
+        math_expression = core_match.group(1).strip()
+        
+        try:
+            init_key = int(eval(math_expression))
+        except Exception as math_err:
+            return f"Error: Failed to evaluate Key expression ({str(math_err)})."
+            
+        if not (0 <= init_key <= 255):
+            return f"Error: Invalid master key scope ({init_key})."
 
-            if secret_key is None:
-                return "Error: Mathematical expression contained unsafe tokens."
-
-            if not (0 <= secret_key <= 255):
-                return f"Error: Invalid system Key detected ({secret_key})."
-
-            decoded_bytes = bytearray()
-            for i in range(0, len(hex_payload), 2):
-                hex_pair = hex_payload[i:i+2]
-                cipher_byte = int(hex_pair, 16)
-                plain_byte = cipher_byte ^ secret_key
-                decoded_bytes.append(plain_byte)
-
-            return decoded_bytes.decode('utf-8', errors='ignore')
-        else:
-            return "Error:It only supports 8xms dumps."
+        decoded_bytes = bytearray()
+        current_key = init_key
+        byte_idx = 0
+        
+        for i in range(0, len(hex_payload), 2):
+            hex_pair = hex_payload[i:i+2]
+            cipher_byte = int(hex_pair, 16)
+            
+            v_x = 0
+            for v_m in range(8):
+                v_w = int((cipher_byte / (2 ** v_m)) % 2)
+                v_res = int((current_key / (2 ** v_m)) % 2)
+                if v_w != v_res:
+                    v_x += 2 ** v_m
+                    
+            decoded_bytes.append(v_x)
+            current_key = (current_key + byte_idx + 7) % 256
+            byte_idx += 1
+            
+        return decoded_bytes.decode('utf-8', errors='ignore')
     except Exception as e:
         return f"Deobfuscation process error: {str(e)}"
 
@@ -424,7 +442,7 @@ intents.message_content = True
 bot = commands.Bot(
     command_prefix=".",
     intents=intents,
-    activity=discord.Activity(type=discord.ActivityType.watching, name=" 𝟴𝘅𝗺s | obf and dump tools "),
+    activity=discord.Activity(type=discord.ActivityType.watching, name="𝟴𝘅𝗺s | obf and dump tools"),
     help_command=None
 )
 
@@ -506,7 +524,7 @@ class DumpSelectionView(discord.ui.View):
                 await self.ctx.reply(f"Insufficient funds. You need at least {COST_8XMS} coins.")
             return
 
-        result = dump_8xms_v10_6(self.content)
+        result = dump_8xms_rolling_key(self.content)
         if result.startswith("Error"):
             await self.status_msg.delete()
             if self.is_channel_mode:

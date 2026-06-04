@@ -405,7 +405,7 @@ def dump_8xms_v10_6(obfuscated_code):
 
             return decoded_bytes.decode('utf-8', errors='ignore')
         else:
-            return "Error: Target code does not contain a valid 8xms v10.6 hex block payload."
+            return "Error:It only supports 8xms dumps."
     except Exception as e:
         return f"Deobfuscation process error: {str(e)}"
 
@@ -424,7 +424,7 @@ intents.message_content = True
 bot = commands.Bot(
     command_prefix=".",
     intents=intents,
-    activity=discord.Activity(type=discord.ActivityType.watching, name=" 𝟴𝘅𝗺s | dump tools"),
+    activity=discord.Activity(type=discord.ActivityType.watching, name=" 𝟴𝘅𝗺s | obf and dump tools "),
     help_command=None
 )
 

@@ -780,4 +780,4 @@ async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
 
 if __name__ == "__main__":
    keep_alive()
-   bot.run(os.getenv("TOKEN
+   bot.run(os.getenv("TOKEN"))

@@ -6,7 +6,7 @@ import random
 import json
 import requests
 import discord
-frdef dumpom discord.ext import commands
+from discord.ext import commands
 from discord import app_commands
 from datetime import date
 from flask import Flask
@@ -57,6 +57,15 @@ def run_server():
 def keep_alive():
     t = Thread(target=run_server)
     t.start()
+
+def fetch_url(url):
+    try:
+        response = requests.get(url, timeout=30)
+        if response.status_code == 200:
+            return response.text
+        return None
+    except Exception:
+        return None
 
 def compress_loadstring_patterns(lua_code):
     if not lua_code:
@@ -363,18 +372,6 @@ def beautify_lua(content):
     final_clean = compress_loadstring_patterns(step4)
 
     return final_clean
-
-def safe_math_eval(expr):
-    expr = "".join(expr.split())
-    if not re.match(r'^[0-9xX_a-fA-F+\-*/()<>|&^~.%]+$', expr):
-        return None
-    try:
-        allowed_chars = set("0123456789abcdefABCDEFxX+-*/() ")
-        if not all(c in allowed_chars for c in expr):
-            return None
-        return int(eval(expr, {"__builtins__": None}, {}))
-    except:
-        return None
 
 def dump_8xms_rolling_key(obfuscated_code):
     try:

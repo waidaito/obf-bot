@@ -6,7 +6,7 @@ import random
 import json
 import requests
 import discord
-from discord.ext import commands
+frdef dumpom discord.ext import commands
 from discord import app_commands
 from datetime import date
 from flask import Flask
@@ -380,61 +380,109 @@ def dump_8xms_rolling_key(obfuscated_code):
     try:
         hex_block_match = re.search(r'\[=\[[A-Z]{3}:([0-9A-Fa-f]+)\]=\]', obfuscated_code)
         if not hex_block_match:
-            return "Error: Target code does not contain a valid hex block payload."
+            hex_block_match = re.search(r'\[==\[[A-Z]{3,4}:([0-9A-Fa-f]+)\]==\]', obfuscated_code)
+        if not hex_block_match:
+            return "Error: Cannot find hex block payload."
             
         hex_payload = hex_block_match.group(1)
-        
-        core_match = re.search(r'string\.sub\([^,]+,\s*5\)\s*;\s*local\s+\w+\s*=\s*([^\n;]+);\s*local\s+\w+\s*=\s*0\s*;\s*for', obfuscated_code)
-        if not core_match:
-            core_match = re.search(r'local\s+h_clean\s*=\s*string\.sub\([^,]+,\s*5\)\s*local\s+\w+\s*=\s*([^\n;]+);\s*local\s+\w+\s*=\s*0\s*;\s*for', obfuscated_code)
-            
-        if not core_match:
-            core_match = re.search(r'string\.sub\([^,]+,\s*5\)\s*local\s+\w+\s*=\s*([^\n;]+);\s*local\s+\w+\s*=\s*0\s*;\s*for', obfuscated_code)
 
-        if not core_match:
-            return "Error: Failed to locate the secure initialization of rolling key inside core."
-            
-        math_expression = core_match.group(1).strip()
-        
-        try:
-            init_key = int(eval(math_expression))
-        except Exception as math_err:
-            return f"Error: Failed to evaluate Key expression ({str(math_err)})."
-            
-        if not (0 <= init_key <= 255):
-            return f"Error: Invalid master key scope ({init_key})."
+        marker = "string.sub"
+        marker_idx = obfuscated_code.find(marker)
+        if marker_idx == -1:
+            marker = "tonumber"
+            marker_idx = obfuscated_code.find(marker)
+        if marker_idx == -1:
+            return "Error: Failed to find VM signature core."
+
+        search_zone = obfuscated_code[marker_idx:marker_idx + 30000]
+        matrix_start = search_zone.find("{{")
+        if matrix_start == -1:
+            matrix_start = search_zone.find("{ {")
+        if matrix_start == -1:
+            return "Error: Matrix anchor not found near core."
+
+        level = 0
+        matrix_end = -1
+        for i in range(matrix_start, len(search_zone)):
+            if search_zone[i] == '{':
+                level += 1
+            elif search_zone[i] == '}':
+                level -= 1
+                if level == 0:
+                    matrix_end = i + 1
+                    break
+
+        if matrix_end == -1:
+            return "Error: Matrix boundary calculation failed."
+
+        matrix_raw = search_zone[matrix_start:matrix_end]
+        pairs = re.findall(r'\{\s*([^\},]+)\s*,\s*([^\}]+)\s*\}', matrix_raw)
+        if not pairs:
+            pairs = re.findall(r'\{\s*([0-9xXa-fA-F+\-*/()\s]+)\s*,\s*([0-9xXa-fA-F+\-*/()\s]+)\s*\}', matrix_raw)
+
+        if not pairs:
+            return "Error: Key matrix extraction resulted empty."
+
+        matrix = []
+        for obf_key, obf_offset in pairs:
+            try:
+                key_str = obf_key.strip().replace(';', '')
+                offset_str = obf_offset.strip().replace(';', '')
+                
+                if '0x' in key_str.lower():
+                    key_val = int(key_str, 16)
+                else:
+                    key_val = int(eval(key_str))
+                    
+                if '0x' in offset_str.lower():
+                    offset_val = int(offset_str, 16)
+                else:
+                    offset_val = int(eval(offset_str))
+                    
+                matrix.append([key_val, offset_val])
+            except:
+                continue
+
+        if not matrix:
+            return "Error: Failed to evaluate any valid key layers."
 
         decoded_bytes = bytearray()
-        current_key = init_key
         byte_idx = 0
-        
-        for i in range(0, len(hex_payload), 2):
-            hex_pair = hex_payload[i:i+2]
-            cipher_byte = int(hex_pair, 16)
-            
-            v_x = 0
-            for v_m in range(8):
-                v_w = int((cipher_byte / (2 ** v_m)) % 2)
-                v_res = int((current_key / (2 ** v_m)) % 2)
-                if v_w != v_res:
-                    v_x += 2 ** v_m
-                    
-            decoded_bytes.append(v_x)
-            current_key = (current_key + byte_idx + 7) % 256
+        payload_len = len(hex_payload)
+
+        for i in range(0, payload_len, 2):
+            if i + 2 > payload_len:
+                break
+            cipher_byte = int(hex_payload[i:i+2], 16)
+            dec_byte = cipher_byte
+
+            for k_layer in matrix:
+                k_val = k_layer[0]
+                v_x = 0
+                for v_m in range(8):
+                    if ((dec_byte >> v_m) & 1) != ((k_val >> v_m) & 1):
+                        v_x |= (1 << v_m)
+                dec_byte = v_x
+
+            decoded_bytes.append(dec_byte)
+
+            for k_layer in matrix:
+                k_layer[0] = (k_layer[0] + byte_idx + k_layer[1]) % 256
+
             byte_idx += 1
             
-        return decoded_bytes.decode('utf-8', errors='ignore')
-    except Exception as e:
-        return f"Deobfuscation process error: {str(e)}"
+            if len(decoded_bytes) > 500000:
+                break
 
-def fetch_url(url):
-    try:
-        response = requests.get(url, timeout=30)
-        if response.status_code == 200:
-            return response.text
-        return None
-    except Exception:
-        return None
+        result = decoded_bytes.decode('utf-8', errors='ignore')
+        
+        if not result.strip():
+            return "Error: Decoded output is empty, key matrix may be incorrect."
+            
+        return result
+
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 intents = discord.Intents.default()
 intents.message_content = True

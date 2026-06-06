@@ -44,7 +44,7 @@ def set_coins(user_id, amount):
     DATA["coins"][str(user_id)] = amount
     save_data(DATA)
 
-app = Flask('')
+app = Flask(__name__)
 
 @app.route('/')
 def home():
@@ -375,67 +375,56 @@ def beautify_lua(content):
 
 def dump_8xms_rolling_key(obfuscated_code):
     try:
-        hex_block_match = re.search(r'\[=\[[A-Z]{3}:([0-9A-Fa-f]+)\]=\]', obfuscated_code)
-        if not hex_block_match:
-            hex_block_match = re.search(r'\[==\[[A-Z]{3,4}:([0-9A-Fa-f]+)\]==\]', obfuscated_code)
-        if not hex_block_match:
-            return "Error: Cannot find hex block payload."
+        start_marker = "[=["
+        end_marker = "]=]"
+        
+        start_idx = obfuscated_code.find(start_marker)
+        end_idx = obfuscated_code.find(end_marker, start_idx)
+        
+        if start_idx == -1 or end_idx == -1:
+            return "Error: Cannot find hex block payload [=[...]=]"
             
-        hex_payload = hex_block_match.group(1)
+        hex_block = obfuscated_code[start_idx + 3:end_idx]
+        if ":" in hex_block:
+            hex_payload = hex_block.split(":", 1)[1]
+        else:
+            hex_payload = hex_block
 
-        marker = "string.sub"
-        marker_idx = obfuscated_code.find(marker)
-        if marker_idx == -1:
-            marker = "tonumber"
-            marker_idx = obfuscated_code.find(marker)
-        if marker_idx == -1:
-            return "Error: Failed to find VM signature core."
-
-        search_zone = obfuscated_code[marker_idx:marker_idx + 30000]
-        matrix_start = search_zone.find("{{")
-        if matrix_start == -1:
-            matrix_start = search_zone.find("{ {")
-        if matrix_start == -1:
-            return "Error: Matrix anchor not found near core."
+        matrix_start_idx = obfuscated_code.find("{{", end_idx)
+        if matrix_start_idx == -1:
+            matrix_start_idx = obfuscated_code.find("{{")
+            
+        if matrix_start_idx == -1:
+            return "Error: Cannot locate key matrix anchor."
 
         level = 0
-        matrix_end = -1
-        for i in range(matrix_start, len(search_zone)):
-            if search_zone[i] == '{':
+        matrix_end_idx = -1
+        for i in range(matrix_start_idx, len(obfuscated_code)):
+            if obfuscated_code[i] == '{':
                 level += 1
-            elif search_zone[i] == '}':
+            elif obfuscated_code[i] == '}':
                 level -= 1
                 if level == 0:
-                    matrix_end = i + 1
+                    matrix_end_idx = i + 1
                     break
 
-        if matrix_end == -1:
-            return "Error: Matrix boundary calculation failed."
+        if matrix_end_idx == -1:
+            return "Error: Matrix structure parsing failed."
 
-        matrix_raw = search_zone[matrix_start:matrix_end]
+        matrix_raw = obfuscated_code[matrix_start_idx:matrix_end_idx]
+        
         pairs = re.findall(r'\{\s*([^\},]+)\s*,\s*([^\}]+)\s*\}', matrix_raw)
         if not pairs:
-            pairs = re.findall(r'\{\s*([0-9xXa-fA-F+\-*/()\s]+)\s*,\s*([0-9xXa-fA-F+\-*/()\s]+)\s*\}', matrix_raw)
-
-        if not pairs:
-            return "Error: Key matrix extraction resulted empty."
+            return "Error: Cannot extract key pairs from matrix."
 
         matrix = []
         for obf_key, obf_offset in pairs:
             try:
-                key_str = obf_key.strip().replace(';', '')
-                offset_str = obf_offset.strip().replace(';', '')
+                k_str = obf_key.replace(';', '').replace('{', '').replace('}', '').strip()
+                o_str = obf_offset.replace(';', '').replace('{', '').replace('}', '').strip()
                 
-                if '0x' in key_str.lower():
-                    key_val = int(key_str, 16)
-                else:
-                    key_val = int(eval(key_str))
-                    
-                if '0x' in offset_str.lower():
-                    offset_val = int(offset_str, 16)
-                else:
-                    offset_val = int(eval(offset_str))
-                    
+                key_val = int(eval(k_str, {"__builtins__": None}, {}))
+                offset_val = int(eval(o_str, {"__builtins__": None}, {}))
                 matrix.append([key_val, offset_val])
             except:
                 continue
@@ -443,15 +432,16 @@ def dump_8xms_rolling_key(obfuscated_code):
         if not matrix:
             return "Error: Failed to evaluate any valid key layers."
 
-        decoded_bytes = bytearray()
-        byte_idx = 0
-        payload_len = len(hex_payload)
+        try:
+            cipher_bytes = bytearray.fromhex(hex_payload)
+        except Exception:
+            return "Error: Hex payload contains invalid characters."
 
-        for i in range(0, payload_len, 2):
-            if i + 2 > payload_len:
-                break
-            cipher_byte = int(hex_payload[i:i+2], 16)
-            dec_byte = cipher_byte
+        decoded_bytes = bytearray(len(cipher_bytes))
+        byte_idx = 0
+
+        for idx in range(len(cipher_bytes)):
+            dec_byte = cipher_bytes[idx]
 
             for k_layer in matrix:
                 k_val = k_layer[0]
@@ -461,15 +451,12 @@ def dump_8xms_rolling_key(obfuscated_code):
                         v_x |= (1 << v_m)
                 dec_byte = v_x
 
-            decoded_bytes.append(dec_byte)
+            decoded_bytes[idx] = dec_byte
 
             for k_layer in matrix:
                 k_layer[0] = (k_layer[0] + byte_idx + k_layer[1]) % 256
 
             byte_idx += 1
-            
-            if len(decoded_bytes) > 500000:
-                break
 
         result = decoded_bytes.decode('utf-8', errors='ignore')
         
@@ -487,7 +474,7 @@ intents.message_content = True
 bot = commands.Bot(
     command_prefix=".",
     intents=intents,
-    activity=discord.Activity(type=discord.ActivityType.watching, name="𝟴𝘅𝗺s | obf and dump tools"),
+    activity=discord.Activity(type=discord.ActivityType.watching, name="8xms | obf and dump tools"),
     help_command=None
 )
 

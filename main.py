@@ -343,27 +343,35 @@ def decode_bytecode_escapes(lua_code):
 def beautify_lua(content):
     if not content or not content.strip():
         return None
+    
+    if len(content) > 5 * 1024 * 1024:
+        return None
+    
     deobfuscated_output = None
     try:
         response = requests.post(
             "https://relua.lua.cz/deobfuscate",
             json={
                 "filename": "script.lua",
-                "source": content,
+                "source": content[:5000000],
                 "lua_version": "Lua51",
                 "pretty": PRETTY_MODE
             },
-            timeout=12
+            timeout=15
         )
-        response.raise_for_status()
-        result = response.json()
-        if "output" in result:
-            deobfuscated_output = result["output"]
-    except Exception:
+        if response.status_code == 200:
+            result = response.json()
+            if "output" in result:
+                deobfuscated_output = result["output"]
+    except:
         deobfuscated_output = content
 
     if not deobfuscated_output:
-        return None
+        deobfuscated_output = content
+    
+    if len(deobfuscated_output.strip()) < 50:
+        return content
+        
     step0 = decode_bytecode_escapes(deobfuscated_output)
     step1 = unflatten_control_flow(step0)
     step2 = heuristic_metatable_decoder(step1)
@@ -371,6 +379,9 @@ def beautify_lua(content):
     step4 = normalize_variables(step3)
     final_clean = compress_loadstring_patterns(step4)
 
+    if not final_clean or len(final_clean.strip()) < 10:
+        return content
+        
     return final_clean
 
 def dump_8xms_rolling_key(obfuscated_code):

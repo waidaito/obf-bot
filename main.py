@@ -3,15 +3,16 @@ import io
 import re
 import string
 import random
+import time
 import json
 import requests
 import discord
 from discord.ext import commands
-from discord import app_commands
-from datetime import date
+from datetime import datetime, date
 from flask import Flask
 from threading import Thread
 
+TOKEN = os.getenv("TOKEN", "TOKEN")
 PRETTY_MODE = True
 
 FREE_USER_ID = 1219951796982648913
@@ -345,7 +346,7 @@ def beautify_lua(content):
         return None
     
     if len(content) > 5 * 1024 * 1024:
-        return None
+        return content
     
     deobfuscated_output = None
     try:
@@ -353,7 +354,7 @@ def beautify_lua(content):
             "https://relua.lua.cz/deobfuscate",
             json={
                 "filename": "script.lua",
-                "source": content[:5000000],
+                "source": content[:500000],
                 "lua_version": "Lua51",
                 "pretty": PRETTY_MODE
             },
@@ -515,18 +516,6 @@ class DumpSelectionView(discord.ui.View):
 
         output = beautify_lua(self.content)
         if output and output.strip() and output != self.content:
-            lines = output.splitlines()
-            if len(lines) > 0:
-                top_limit = min(60, len(lines))
-                top_part = "\n".join(lines[:top_limit])
-                bottom_part = "\n".join(lines[top_limit:])
-                dynamic_garbage_pattern = r'^.*for\s+i\s*=\s*1\s*,\s*var_\d+\.len\(arg1\)\s*,\s*1\s+do.*?end\s*;?'
-                top_part = re.sub(dynamic_garbage_pattern, '', top_part, flags=re.DOTALL | re.MULTILINE).strip()
-                if top_part.startswith("local lookup"):
-                    static_pattern = r'local\s+lookup\s*=\s*\{\}\s*;?.*?local\s+var_8\s*=\s*function\(.*?\).*?repeat\s*until\s+false\s*;?.*?(?=local\s+\w+\s*=\s*game|loadstring|return|\Z)'
-                    top_part = re.sub(static_pattern, '', top_part, flags=re.DOTALL).strip()
-                output = top_part + "\n" + bottom_part if bottom_part else top_part
-
             final_output = f"-- This file was created by 8xms discord.gg/8mktK8HtT --\n\n{output.strip()}"
             file_stream = io.BytesIO(final_output.encode('utf-8'))
             discord_file = discord.File(fp=file_stream, filename="message.txt")
@@ -819,7 +808,8 @@ async def help_cmd(ctx):
         "`.topcoin`  list of user coins\n"
         "`.buycoin`  get task link to earn coins\n"
         "`.detect`  detect obfuscators type\n"
-        "`.dump`  deobfuscator script (Cost: 10 or 3000 coins)"
+        "`.dump`  deobfuscator script (Cost: 10 or 3000 coins)\n"
+        "`.set`  set dump channel (admin only)"
     )
 
     msg_embed = discord.Embed(
@@ -854,4 +844,4 @@ async def set_channel_cmd(ctx, channel: discord.TextChannel = None):
 
 if __name__ == "__main__":
     keep_alive()
-    bot.run(os.getenv("TOKEN"))
+    bot.run(TOKEN)
